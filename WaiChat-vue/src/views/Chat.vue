@@ -10,7 +10,6 @@
           <div class="add-chat-icon">+</div>
           <div class="add-chat-text">新增聊天</div>
         </li>
-        <!-- 注意：这里的循环变量是 contact，我们将使用它的 nickname, username, 和 lastMessage 属性 -->
         <li
             v-for="contact in contacts"
             :key="contact.id"
@@ -25,6 +24,12 @@
             <div class="contact-name">
               <span class="nickname">{{ contact.nickname }}</span>
               <span class="username">@{{ contact.username }}</span>
+              <span
+                  v-if="unreadCounts[contact.id] && unreadCounts[contact.id] > 0"
+                  class="unread-badge"
+              >
+                {{ unreadCounts[contact.id] }}
+              </span>
             </div>
             <!-- 显示最后一条消息的预览 -->
             <div class="last-message">{{ contact.lastMessage }}</div>
@@ -71,7 +76,14 @@
               :class="['message-item', msg.senderId === userId ? 'self-message' : 'other-message']"
           >
             <div class="message-bubble">
-              <div class="message-sender">{{ msg.senderName || (msg.senderId === userId ? '我' : '未知用户') }}</div>
+              <div class="message-sender-container">
+                <div class="message-sender">
+                  {{ msg.senderName || (msg.senderId === userId ? '我' : '未知用户') }}
+                </div>
+                <div class="message-time">
+                  {{ formatTime(msg.timestamp) }}
+                </div>
+              </div>
               <div class="message-content">{{ msg.content }}</div>
             </div>
           </div>
@@ -122,6 +134,7 @@ export default {
       selectedContactId: null, // 当前选中的联系人ID
       currentContactName: '', // 当前选中的联系人名称
       contacts: [], // 存储联系人列表
+      unreadCounts: {}, // 存储每个联系人的未读消息数，格式: { contactId: count }
       showAddContactModal: false,
     };
   },
@@ -209,12 +222,24 @@ export default {
       });
     },
 
+    formatTime(timestamp) {
+      if (!timestamp) return '';
+      const date = new Date(timestamp);
+      // 格式化为 时:分 格式（如 14:35）
+      return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+    },
+
     // 选择联系人
     selectContact(contact) {
       this.selectedContactId = contact.id;
       // 显示昵称
       this.currentContactName = contact.nickname;
       this.messages = []; // 清空旧消息
+
+      // 清空未读计数
+      if (this.unreadCounts[contact.id]) {
+        this.unreadCounts[contact.id] = 0;
+      }
 
       axios.get('/api/chat/history', {
         params: {
@@ -361,30 +386,35 @@ export default {
       this.ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
-          const senderId = data.userId || data.senderId;
+          const senderId = data.userId || data.senderId; // 提取发送者ID
+
           const message = {
             id: data.id || Date.now() + Math.random(),
-            senderId: senderId, // 使用临时变量
+            senderId: senderId,
             targetId: data.targetId,
             content: data.content,
             senderName: this.contacts.find(c => c.id === senderId)?.nickname || '未知用户',
             timestamp: data.createTime || new Date()
           };
-          const contactIndex = this.contacts.findIndex(c => c.id == senderId);
-          if (contactIndex !== -1) {
-            // 1. 更新最后一条消息内容
-            this.contacts[contactIndex].lastMessage = message.content;
-            // 2. 将该联系人移到列表顶部（最新消息优先展示）
-            const updatedContact = this.contacts.splice(contactIndex, 1)[0];
-            this.contacts.unshift(updatedContact);
-          }
-          // 如果是当前选中的联系人消息，添加到聊天窗口
-          if (this.selectedContactId == senderId) {
+
+          // 如果不是当前聊天对象，更新未读计数
+          if (this.selectedContactId != senderId) {
+            // 未读计数+1（如果是新消息）
+            this.unreadCounts[senderId] = (this.unreadCounts[senderId] || 0) + 1;
+
+            // 显示通知
+            this.showNotification(`收到来自 "${message.senderName}" 的新消息`);
+          } else {
+            // 当前聊天对象，直接添加消息
             this.messages.push(message);
             this.scrollToBottom();
-          } else {
-            // 显示新消息通知
-            this.showNotification(`收到来自 "${message.senderName}" 的新消息`);
+          }
+
+          // 更新联系人列表最后一条消息和排序（原有逻辑）
+          const contactIndex = this.contacts.findIndex(c => c.id == senderId);
+          if (contactIndex !== -1) {
+            this.contacts[contactIndex].lastMessage = message.content;
+            this.contacts.unshift(this.contacts.splice(contactIndex, 1)[0]);
           }
         } catch (e) {
           console.warn('无法解析 WebSocket 消息:', e);
@@ -515,7 +545,7 @@ export default {
   flex-shrink: 0;
 }
 
-/* --- 新增的联系人信息样式 --- */
+/* --- 联系人信息样式 --- */
 .contact-info {
   display: flex;
   flex-direction: column;
@@ -524,9 +554,26 @@ export default {
   min-width: 0; /* 防止内容过长时 flex 布局异常 */
 }
 
+/* 未读消息徽章 */
+.contact-name .unread-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  background-color: #ff4d4f;
+  color: white;
+  font-size: 12px;
+  font-weight: bold;
+  border-radius: 50%;
+  margin-left: 8px;
+  padding: 0 4px;
+  flex-shrink: 0;
+}
+
 .contact-name {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 8px;
   margin-bottom: 4px;
 }
@@ -646,6 +693,8 @@ export default {
   border-radius: 18px;
   position: relative;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  /* 确保内容不会溢出 */
+  max-width: 100%;
 }
 
 .self-message .message-bubble {
@@ -661,13 +710,36 @@ export default {
   border-top-left-radius: 4px;
 }
 
+/* 消息发送者容器（包含名字和时间） */
+.message-sender-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
 .message-sender {
   font-size: 12px;
-  margin-bottom: 4px;
   opacity: 0.8;
   font-weight: 500;
 }
+/* 时间戳样式 */
+.message-time {
+  font-size: 11px;
+  color: #999; /* 淡灰色 */
+  margin-left: 8px;
+  opacity: 0.7;
+}
 
+/* 他人消息的时间戳 - 淡灰色 */
+.other-message .message-time {
+  color: #999;
+}
+
+/* 自己消息的时间戳 - 白色 */
+.self-message .message-time {
+  color: white;
+}
 .message-content {
   font-size: 15px;
   line-height: 1.4;
