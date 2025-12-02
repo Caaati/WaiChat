@@ -20,20 +20,21 @@
             <!-- 使用昵称的第一个字符作为头像 -->
             <span>{{ contact.nickname.charAt(0) }}</span>
           </div>
-          <div class="contact-info"> <!-- 新增一个容器来包裹文本信息 -->
+          <!-- 文本信息容器 -->
+          <div class="contact-info">
             <div class="contact-name">
               <span class="nickname">{{ contact.nickname }}</span>
               <span class="username">@{{ contact.username }}</span>
-              <span
-                  v-if="unreadCounts[contact.id] && unreadCounts[contact.id] > 0"
-                  class="unread-badge"
-              >
-                {{ unreadCounts[contact.id] }}
-              </span>
             </div>
-            <!-- 显示最后一条消息的预览 -->
             <div class="last-message">{{ contact.lastMessage }}</div>
           </div>
+          <!-- 未读红点（放在信息容器右侧） -->
+          <span
+              v-if="unreadCounts[contact.id] && unreadCounts[contact.id] > 0"
+              class="unread-badge"
+          >
+            {{ unreadCounts[contact.id] }}
+          </span>
         </li>
       </ul>
     </div>
@@ -519,7 +520,8 @@ export default {
   align-items: center;
   cursor: pointer;
   transition: background-color 0.2s ease;
-  border-bottom: 1px solid #f0f0f0; /* 添加分隔线 */
+  border-bottom: 1px solid #f0f0f0;
+  gap: 12px;
 }
 
 .contacts-list li:hover {
@@ -554,8 +556,8 @@ export default {
   min-width: 0; /* 防止内容过长时 flex 布局异常 */
 }
 
-/* 未读消息徽章 */
-.contact-name .unread-badge {
+/* 未读红点样式（圆形 + 右侧中间） */
+.unread-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -565,10 +567,9 @@ export default {
   color: white;
   font-size: 12px;
   font-weight: bold;
-  border-radius: 50%;
-  margin-left: 8px;
-  padding: 0 4px;
-  flex-shrink: 0;
+  border-radius: 50%; /* 圆形 */
+  flex-shrink: 0; /* 防止被压缩变形 */
+  margin-left: auto; /* 推到最右侧 */
 }
 
 .contact-name {
