@@ -118,7 +118,8 @@
 
 <script>
 import axios from "axios";
-import AddContactModal from '../components/chat/AddContactModal.vue';
+import AddContactModal from '@/components/chat/AddContactModal.vue';
+import {CODES} from "@/constants/codes.js";
 
 export default {
   components: {
@@ -177,7 +178,7 @@ export default {
           userId: this.userId,
         }
       }).then(res => {
-        if (res.data.code === 1) {
+        if (res.data.code === CODES.SUCCESS) {
           const _data = Array.isArray(res.data.data) ? res.data.data : [];
 
           // 【重要修正】将数据赋值给 contacts，而不是 messages
@@ -248,7 +249,7 @@ export default {
           targetId: contact.id
         }
       }).then(res => {
-        if (res.data.code === 1) {
+        if (res.data.code === CODES.SUCCESS) {
           const historyData = Array.isArray(res.data.data) ? res.data.data : [];
 
           this.messages = historyData.map(msg => {
@@ -304,7 +305,7 @@ export default {
 
         const data = await response.json();
 
-        if (data.code === 1) {
+        if (data.code === CODES.SUCCESS) {
           newMessage.status = 'sent';
 
           // --- 新增代码开始 ---

@@ -27,6 +27,7 @@
 <script>
 import axios from 'axios';
 import { useRouter } from 'vue-router';
+import {CODES} from "@/constants/codes.js";
 
 export default {
   data() {
@@ -48,7 +49,7 @@ export default {
           username: this.username,
           password: this.password
         });
-        if (res.data.code === 1) {
+        if (res.data.code === CODES.SUCCESS) {
           alert('注册成功！请登录');
           this.$router.push('/login');
         } else {

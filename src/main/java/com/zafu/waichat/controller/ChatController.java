@@ -1,17 +1,16 @@
 package com.zafu.waichat.controller;
 
 import com.zafu.waichat.pojo.dto.UserContactDTO;
+import com.zafu.waichat.util.Result;
 import com.zafu.waichat.websocket.WebSocket;
 import com.zafu.waichat.mapper.ChatMapper;
 import com.zafu.waichat.pojo.entity.Chat;
 import com.zafu.waichat.service.ChatService;
-import com.zafu.waichat.util.Result;
 import io.swagger.annotations.Api;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.HashMap;
 import java.util.List;
 
 @RestController

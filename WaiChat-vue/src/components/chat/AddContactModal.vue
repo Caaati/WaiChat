@@ -44,6 +44,7 @@
 
 <script>
 import axios from "axios";
+import {CODES} from "@/constants/codes.js";
 
 export default {
   name: "AddContactModal",
@@ -90,7 +91,7 @@ export default {
           params: { key: query }
         });
 
-        if (response.data.code === 1) {
+        if (response.data.code === CODES.SUCCESS) {
           this.searchResults = response.data.data.filter(
               user => user.id !== this.currentUserId
           );

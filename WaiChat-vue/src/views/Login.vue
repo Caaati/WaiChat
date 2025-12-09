@@ -21,6 +21,7 @@
 <script>
 import axios from 'axios';
 import { useRouter } from 'vue-router';
+import {CODES} from "@/constants/codes.js";
 
 export default {
   data() {
@@ -38,7 +39,7 @@ export default {
 
         const res = await axios.post('/api/login', formData);
 
-        if (res.data.code === 1) {
+        if (res.data.code === CODES.SUCCESS) {
           // 假设后端返回的数据结构是 { code: 1, msg: "success", data: { id: 1, username: "admin" } }
           // 请根据你实际的返回结构进行调整
           if (res.data.data && res.data.data.id) {

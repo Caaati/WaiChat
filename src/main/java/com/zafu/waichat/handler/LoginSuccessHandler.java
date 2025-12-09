@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zafu.waichat.mapper.UserMapper;
 import com.zafu.waichat.pojo.entity.User;
+import com.zafu.waichat.util.ResponseEnum;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -37,8 +38,8 @@ public class LoginSuccessHandler implements AuthenticationSuccessHandler {
 
         // 3. 构建要返回给前端的响应数据
         Map<String, Object> responseData = new HashMap<>();
-        responseData.put("code", 1);
-        responseData.put("msg", "登录成功");
+        responseData.put("code", ResponseEnum.SUCCESS.getCode());
+        responseData.put("message", ResponseEnum.SUCCESS.getMessage());
 
         // 将完整的用户信息（或仅需要的字段）放入 data 中
         Map<String, Object> userData = new HashMap<>();

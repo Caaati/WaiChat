@@ -1,6 +1,7 @@
 // vite.config.js
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
+import { resolve } from 'path'
 
 export default defineConfig({
   plugins: [vue()],
@@ -13,5 +14,12 @@ export default defineConfig({
         rewrite: (path) => path.replace(/^\/api/, '') // 去掉 /api 前缀（后端接口没有 /api）
       }
     }
+  },
+  resolve: {
+    // 设置路径别名
+    alias: {
+      '@': resolve(__dirname, './src'),
+      '*': resolve('')
+    },
   }
 })
