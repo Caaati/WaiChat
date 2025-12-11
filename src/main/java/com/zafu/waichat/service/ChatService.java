@@ -14,4 +14,8 @@ public interface ChatService extends IService<Chat> {
     boolean saveChatMessage(Chat chat);
 
     List<UserContactDTO> getContactList(Long userId);
+
+    void removeHistory(Integer userId, Integer targetId);
+
+    void recoverHistory(Integer userId, Integer targetId);
 }

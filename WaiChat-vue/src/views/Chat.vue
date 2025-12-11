@@ -1,6 +1,5 @@
 <template>
   <div class="app-container">
-    <!-- 左侧联系人列表 -->
     <div class="contacts-sidebar">
       <div class="sidebar-header">
         <h3>联系人</h3>
@@ -11,16 +10,14 @@
           <div class="add-chat-text">新增聊天</div>
         </li>
         <li
-            v-for="contact in contacts"
-            :key="contact.id"
-            :class="{ 'active': selectedContactId === contact.id }"
-            @click="selectContact(contact)"
+          v-for="contact in contacts"
+          :key="contact.id"
+          :class="{ 'active': selectedContactId === contact.id }"
+          @click="selectContact(contact)"
         >
           <div class="contact-avatar">
-            <!-- 使用昵称的第一个字符作为头像 -->
             <span>{{ contact.nickname.charAt(0) }}</span>
           </div>
-          <!-- 文本信息容器 -->
           <div class="contact-info">
             <div class="contact-name">
               <span class="nickname">{{ contact.nickname }}</span>
@@ -28,10 +25,9 @@
             </div>
             <div class="last-message">{{ contact.lastMessage }}</div>
           </div>
-          <!-- 未读红点（放在信息容器右侧） -->
           <span
-              v-if="unreadCounts[contact.id] && unreadCounts[contact.id] > 0"
-              class="unread-badge"
+            v-if="unreadCounts[contact.id] && unreadCounts[contact.id] > 0"
+            class="unread-badge"
           >
             {{ unreadCounts[contact.id] }}
           </span>
@@ -39,30 +35,52 @@
       </ul>
     </div>
 
-    <!-- 右侧聊天区域 -->
     <div class="chat-container">
-      <!-- 聊天头部：显示当前聊天对象 -->
-      <div class="chat-header">
-        <div class="contact-avatar">
-          <span>{{ currentContactName.charAt(0) }}</span>
+
+      <transition name="slide-fade">
+        <div v-if="notification.show" class="chat-notification" :class="notification.type">
+          <span class="notify-icon">{{ notification.type === 'error' ? '⚠️' : 'ℹ️' }}</span>
+          <span class="notify-text">{{ notification.message }}</span>
         </div>
-        <h2>{{ currentContactName || '选择一个联系人开始聊天' }}</h2>
-        <!-- 当前登录用户信息 -->
+      </transition>
+
+      <div class="chat-header">
+        <div class="header-left">
+          <div class="contact-avatar" v-if="currentContactName">
+            <span>{{ currentContactName.charAt(0) }}</span>
+          </div>
+          <h2>{{ currentContactName || '选择一个联系人开始聊天' }}</h2>
+          <button v-if="selectedContactId" @click="handleClearHistory" class="clear-history-btn" title="清空历史记录">🗑️</button>
+          <button v-if="selectedContactId" @click="handleRecoverHistory" class="clear-history-btn" title="恢复历史记录">🔄️</button>
+
+        </div>
+
+        <div class="translation-controls" v-if="selectedContactId">
+          <label class="switch-label">
+            <input type="checkbox" v-model="autoTranslate">
+            <span class="switch-text">自动翻译</span>
+          </label>
+
+          <select v-model="targetLang" class="lang-select" :disabled="!autoTranslate">
+            <option v-for="lang in languages" :key="lang.code" :value="lang.code">
+              {{ lang.flag }} {{ lang.name }}
+            </option>
+          </select>
+        </div>
+
         <div class="current-user-item">
           <div class="contact-avatar">
-            <!-- 添加空值判断，避免username为null时出错 -->
             <span>{{ nickname ? nickname.charAt(0) : '' }}</span>
           </div>
           <div class="contact-info">
             <div class="contact-name">
               <span class="nickname">{{ nickname || '未登录' }}</span>
             </div>
-            <button class="logout-btn" @click="handleLogout">退出登录</button>
+            <button class="logout-btn" @click="handleLogout">退出</button>
           </div>
         </div>
       </div>
 
-      <!-- 聊天消息区域 -->
       <div class="chat-messages">
         <div v-if="messages.length === 0 && selectedContactId" class="empty-chat-hint">
           <p>这里是空的，发送一条消息开始对话吧！</p>
@@ -72,9 +90,9 @@
         </div>
         <div class="message-list">
           <div
-              v-for="msg in filteredMessages"
-              :key="msg.id"
-              :class="['message-item', msg.senderId === userId ? 'self-message' : 'other-message']"
+            v-for="msg in filteredMessages"
+            :key="msg.id"
+            :class="['message-item', msg.senderId === userId ? 'self-message' : 'other-message']"
           >
             <div class="message-bubble">
               <div class="message-sender-container">
@@ -85,34 +103,63 @@
                   {{ formatTime(msg.timestamp) }}
                 </div>
               </div>
+
               <div class="message-content">{{ msg.content }}</div>
+
+              <div v-if="msg.translatedContent" class="translation-content">
+                <div class="divider"></div>
+                <span class="trans-icon">🌐</span> {{ msg.translatedContent }}
+              </div>
+              <div v-else-if="msg.isTranslating" class="translating-spinner">
+                翻译中...
+              </div>
+
+              <button
+                v-if="!msg.translatedContent && msg.senderId !== userId && !msg.isTranslating"
+                class="manual-trans-btn"
+                @click="translateSingleMessage(msg)"
+              >
+                翻译
+              </button>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- 输入区域 -->
-      <div class="chat-input-area">
-        <input
+      <div class="chat-input-wrapper">
+        <div class="ai-toolbar" v-if="selectedContactId">
+          <button @click="handleSmartReply" class="ai-tool-btn" :disabled="aiProcessing">
+            🤖 智能回复
+          </button>
+          <button @click="handleAiPolish('business')" class="ai-tool-btn" :disabled="!message">
+            ✨ 商务润色
+          </button>
+          <button @click="handleAiPolish('casual')" class="ai-tool-btn" :disabled="!message">
+            😎 语气软化
+          </button>
+          <div class="ai-loading" v-if="aiProcessing">AI 思考中...</div>
+        </div>
+
+        <div class="chat-input-area">
+          <input
             type="text"
             v-model="message"
             @keyup.enter="sendMessage"
             placeholder="输入消息..."
             class="message-input"
-        />
-        <button @click="sendMessage" class="send-button">发送</button>
+          />
+          <button @click="sendMessage" class="send-button">发送</button>
+        </div>
       </div>
     </div>
-    <!-- 引入新增联系人的模态框组件 -->
+
     <AddContactModal
-        :is-visible="showAddContactModal"
-        :current-user-id="userId"
-        @close="showAddContactModal = false"
-        @user-selected="handleUserSelected"
-        @search-error="showNotification"
+      :is-visible="showAddContactModal"
+      :current-user-id="userId"
+      @close="showAddContactModal = false"
+      @user-selected="handleUserSelected"
+      @search-error="showNotification"
     />
-    <!-- 动态提示框的容器 -->
-    <div id="notification-container" ref="notificationContainer" class="notification-wrapper"></div>
   </div>
 </template>
 
@@ -127,131 +174,141 @@ export default {
   },
   data() {
     return {
-      messages: [], // 存储当前聊天窗口的消息
+      messages: [],
+      languages: [],
       message: '',
       ws: null,
       userId: null,
       username: null,
       nickname: null,
-      selectedContactId: null, // 当前选中的联系人ID
-      currentContactName: '', // 当前选中的联系人名称
-      contacts: [], // 存储联系人列表
-      unreadCounts: {}, // 存储每个联系人的未读消息数，格式: { contactId: count }
+      selectedContactId: null,
+      currentContactName: '',
+      contacts: [],
+      unreadCounts: {},
       showAddContactModal: false,
+
+      // --- 新增状态 ---
+      autoTranslate: false, // 是否开启自动翻译
+      targetLang: 'zh',     // 默认目标语言
+      aiProcessing: false,  // AI 是否正在处理
+
+      notification: {
+        show: false,
+        message: '',
+        type: 'info',
+        timer: null
+      }
     };
   },
   computed: {
-    // 计算属性：只显示与当前选中联系人相关的消息
     filteredMessages() {
       if (!this.selectedContactId || !this.userId) return [];
       return this.messages
-          .filter(msg =>
-              (msg.senderId == this.userId && msg.targetId == this.selectedContactId) ||
-              (msg.senderId == this.selectedContactId && msg.targetId == this.userId)
-          )
-          .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+        .filter(msg =>
+          (msg.senderId == this.userId && msg.targetId == this.selectedContactId) ||
+          (msg.senderId == this.selectedContactId && msg.targetId == this.userId)
+        )
+        .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
     },
   },
 
   methods: {
-    // 退出登录
+    getLanguages() {
+      axios.get('/api/ai/languages')
+        .then(res => {
+          if (res.data.code === CODES.SUCCESS) {
+            this.languages = res.data.data;
+            // 如果列表不为空且当前没有选中语言，默认选中第一个
+            if (this.languages.length > 0 && !this.targetLang) {
+              this.targetLang = this.languages[0].code;
+            }
+          }
+        })
+        .catch(e => console.error("获取语言列表失败", e));
+    },
+    // 旗帜映射辅助函数
+    getFlag(code) {
+      const map = {'zh': '🇨🇳', 'en': '🇺🇸', 'ja': '🇯🇵', 'ko': '🇰🇷', 'fr': '🇫🇷'};
+      return map[code] || '🌐';
+    },
+
+    // 智能回复功能
+    async handleSmartReply() {
+      if (!this.selectedContactId) return;
+      this.aiProcessing = true;
+      // 准备数据：取最近20条，格式化 userId -> 我/对方
+      const recentHistory = this.filteredMessages.slice(-20).map(msg => ({
+        userId: msg.senderId == this.userId ? '我' : '对方',
+        targetId: msg.targetId == this.userId ? '我' : '对方',
+        content: msg.content
+      }));
+
+      try {
+        const response = await axios.post('/api/ai/smartReply', recentHistory); // 直接发数组，根据你描述的后端需求
+        if (response.data.code === CODES.SUCCESS || response.data.code === 200) {
+          // 2. 填充到输入框
+          this.message = response.data.data; // 假设返回 String
+          this.showNotification('AI 已生成回复建议');
+        } else {
+          this.showNotification(response.data.msg || '无法生成回复', 'error');
+        }
+      } catch (e) {
+        console.error(e);
+        this.showNotification('AI 服务繁忙', 'error');
+      } finally {
+        this.aiProcessing = false;
+      }
+    },
     handleLogout() {
       if (confirm('确定要退出登录吗？')) {
-        // 关闭WebSocket连接
-        if (this.ws) {
-          this.ws.close();
-        }
-        // 清除本地存储的用户信息
-        localStorage.removeItem('userId');
-        localStorage.removeItem('username');
-        localStorage.removeItem('nickname');
-        // 跳转到登录页
+        if (this.ws) this.ws.close();
+        localStorage.clear();
         this.$router.push('/login');
       }
     },
-    // 获取联系人列表
     getContactList() {
-      // 清空旧数据，防止重复或闪烁
       this.contacts = [];
-      axios.get('/api/chat/getContactList', {
-        params: {
-          userId: this.userId,
-        }
-      }).then(res => {
-        if (res.data.code === CODES.SUCCESS) {
-          const _data = Array.isArray(res.data.data) ? res.data.data : [];
-
-          // 【重要修正】将数据赋值给 contacts，而不是 messages
-          this.contacts = _data.map(item => {
-            return {
+      axios.get('/api/chat/getContactList', {params: {userId: this.userId}})
+        .then(res => {
+          if (res.data.code === CODES.SUCCESS) {
+            const _data = Array.isArray(res.data.data) ? res.data.data : [];
+            this.contacts = _data.map(item => ({
               id: item.id,
               username: item.username,
               nickname: item.nickname,
-              lastMessage: item.content || '无消息' // 使用 content 作为最后一条消息
-            };
-          });
-        } else {
-          console.error('加载联系人失败:', res.data.msg);
-        }
-      }).catch(err => {
-        console.error('请求联系人列表异常:', err);
-      });
+              lastMessage: item.content || '无消息'
+            }));
+          }
+        });
     },
-
-    // 当用户在子组件中选择了一个用户时触发
     handleUserSelected(user) {
-      console.log('从子组件收到选中的用户:', user);
-      // 1. 检查该用户是否已在联系人列表中
       const existingContactIndex = this.contacts.findIndex(c => c.id == user.id);
-
       if (existingContactIndex !== -1) {
-        // 2. 如果已存在，则将其移到列表顶部
         const contact = this.contacts.splice(existingContactIndex, 1)[0];
         this.contacts.unshift(contact);
       } else {
-        // 3. 如果不存在，则添加到联系人列表顶部
         this.contacts.unshift({
-          id: user.id,
-          username: user.username,
-          nickname: user.nickname,
-          lastMessage: '无消息'
+          id: user.id, username: user.username, nickname: user.nickname, lastMessage: '无消息'
         });
       }
-      this.selectContact({
-        id: user.id,
-        nickname: user.nickname,
-        username: user.username
-      });
+      this.selectContact({id: user.id, nickname: user.nickname, username: user.username});
     },
-
     formatTime(timestamp) {
       if (!timestamp) return '';
       const date = new Date(timestamp);
-      // 格式化为 时:分 格式（如 14:35）
       return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
     },
-
-    // 选择联系人
     selectContact(contact) {
       this.selectedContactId = contact.id;
-      // 显示昵称
       this.currentContactName = contact.nickname;
-      this.messages = []; // 清空旧消息
-
-      // 清空未读计数
-      if (this.unreadCounts[contact.id]) {
-        this.unreadCounts[contact.id] = 0;
-      }
+      this.messages = [];
+      if (this.unreadCounts[contact.id]) this.unreadCounts[contact.id] = 0;
 
       axios.get('/api/chat/history', {
-        params: {
-          userId: this.userId,
-          targetId: contact.id
-        }
+        params: {userId: this.userId, targetId: contact.id}
       }).then(res => {
         if (res.data.code === CODES.SUCCESS) {
           const historyData = Array.isArray(res.data.data) ? res.data.data : [];
-
           this.messages = historyData.map(msg => {
             const isSelf = msg.userId == this.userId;
             return {
@@ -259,19 +316,128 @@ export default {
               senderId: isSelf ? this.userId : msg.userId,
               targetId: isSelf ? contact.id : msg.targetId,
               content: msg.content,
-              // 聊天窗口中显示昵称
               senderName: isSelf ? '我' : contact.nickname,
-              timestamp: msg.timestamp || msg.createTime || new Date()
+              timestamp: msg.timestamp || msg.createTime || new Date(),
+              translatedContent: null // 历史记录暂时不加载翻译，如需加载需后端配合存储
             };
           });
-
           this.scrollToBottom();
-        } else {
-          console.error('加载聊天记录失败:', res.data.msg);
         }
-      }).catch(err => {
-        console.error('请求聊天记录异常:', err);
       });
+    },
+    async handleClearHistory() {
+      if (!this.selectedContactId) return;
+      if (!confirm(`确定要清空与 ${this.currentContactName} 的所有聊天记录吗？此操作不可逆！`)) {
+        return;
+      }
+      try {
+        const response = await axios.post('/api/chat/removeHistory', {
+            userId: this.userId,
+            targetId: this.selectedContactId
+        });
+        if (response.data.code === CODES.SUCCESS || response.data.code === 200) {
+          // 成功后，清空本地消息列表
+          this.messages = [];
+          // 移除联系人列表中的最后一条消息显示
+          const contact = this.contacts.find(c => c.id == this.selectedContactId);
+          if (contact) {
+            contact.lastMessage = '无消息';
+          }
+
+          this.showNotification('聊天记录已清空', 'info');
+        } else {
+          this.showNotification(response.data.msg || '清空历史记录失败', 'error');
+        }
+      } catch (error) {
+        console.error('清空历史记录请求失败', error);
+        this.showNotification('清空历史记录失败，网络或服务错误', 'error');
+      }
+    },
+    async handleRecoverHistory() {
+      if (!this.selectedContactId) return;
+
+      // 提示用户这是一个恢复操作
+      if (!confirm(`确定要恢复与 ${this.currentContactName} 之间已逻辑删除的聊天记录吗？`)) {
+        return;
+      }
+
+      try {
+        // 构造请求体所需的 JSON 对象
+        const payload = {
+          userId: this.userId,
+          targetId: this.selectedContactId
+        };
+
+        // 发送 POST 请求，将 payload 作为请求体
+        const response = await axios.post('/api/chat/recoverHistory', payload);
+
+        if (response.data.code === CODES.SUCCESS || response.data.code === 200) {
+          // 1. 成功后，调用 selectContact 方法来刷新本地消息列表
+          // selectContact 方法会重新拉取 chat/history 接口的数据
+          const currentContact = this.contacts.find(c => c.id == this.selectedContactId);
+          if (currentContact) {
+            // 传入当前联系人对象，触发消息历史的重新加载
+            this.selectContact(currentContact);
+          }
+
+          this.showNotification('聊天记录已恢复', 'info');
+        } else {
+          this.showNotification(response.data.msg || '恢复历史记录失败', 'error');
+        }
+      } catch (error) {
+        console.error('恢复历史记录请求失败', error);
+        this.showNotification('恢复历史记录失败，网络或服务错误', 'error');
+      }
+    },
+    // AI 润色功能
+    async handleAiPolish(style) {
+      if (!this.message.trim()) return;
+      this.aiProcessing = true;
+      try {
+        const response = await axios.post('/api/ai/polish', {
+          text: this.message,
+          style: style
+        });
+        if (response.data.code === CODES.SUCCESS) {
+          this.message = response.data.data;
+          this.showNotification(`已完成${style === 'business' ? '商务' : '语气'}润色`);
+        }
+      } catch (error) {
+        this.showNotification('AI服务暂时繁忙', 'error');
+      } finally {
+        this.aiProcessing = false;
+        this.$nextTick(() => document.querySelector('.message-input')?.focus());
+      }
+    },
+
+    // --- 调用翻译接口 ---
+    async translateSingleMessage(msg) {
+      // 防止重复点击
+      if (msg.translatedContent || msg.isTranslating) return;
+      msg.isTranslating = true;
+
+      try {
+        const response = await axios.post('/api/ai/translate', {
+          text: msg.content,
+          target: this.targetLang
+        });
+
+        if (response.data.code === CODES.SUCCESS) {
+          msg.translatedContent = response.data.data.translated;
+        } else {
+          console.warn('翻译接口返回异常', response.data);
+          this.showNotification('翻译失败', 'error');
+        }
+      } catch (error) {
+        console.error("翻译失败", error);
+        this.showNotification('翻译服务不可用', 'error');
+      } finally {
+        // 【修复】直接赋值
+        msg.isTranslating = false;
+        // 强制刷新一下视图（保险起见，虽然Vue3通常不需要）
+        // this.$forceUpdate();
+        // this.scrollToBottom();
+      }
     },
 
     async sendMessage() {
@@ -285,10 +451,11 @@ export default {
         targetName: this.currentContactName,
         content: this.message,
         status: 'sending',
+        translatedContent: null
       };
+
       this.messages.push(newMessage);
       this.scrollToBottom();
-
       const messageContent = this.message;
       this.message = '';
 
@@ -302,71 +469,44 @@ export default {
             content: messageContent,
           }),
         });
-
         const data = await response.json();
 
         if (data.code === CODES.SUCCESS) {
           newMessage.status = 'sent';
-
-          // --- 新增代码开始 ---
-          // 1. 找到当前联系人在 contacts 数组中的索引
           const contactIndex = this.contacts.findIndex(c => c.id == this.selectedContactId);
-
-          // 2. 如果找到了（通常情况下都能找到）
           if (contactIndex !== -1) {
-            // 3. 更新最后一条消息
             this.contacts[contactIndex].lastMessage = messageContent;
-
-            // 4. 将该联系人移动到列表顶部，提升用户体验
-            const updatedContact = this.contacts.splice(contactIndex, 1)[0];
-            this.contacts.unshift(updatedContact);
+            this.contacts.unshift(this.contacts.splice(contactIndex, 1)[0]);
           }
-          // --- 新增代码结束 ---
-
         } else {
           newMessage.status = 'offline';
-          this.showNotification(data.msg || `对方"${this.currentContactName}"当前不在线，消息将在对方上线后送达`, 'error');
+          this.showNotification(data.msg || '对方不在线', 'error');
         }
       } catch (error) {
-        console.error('发送消息时出错:', error);
         newMessage.status = 'error';
-        this.showNotification('消息发送失败，请检查网络连接。', 'error');
+        this.showNotification('发送失败', 'error');
       }
     },
 
-    // 显示通知
     showNotification(message, type = 'info') {
-      const container = this.$refs.notificationContainer;
-      if (!container) {
-        console.error('通知容器未找到');
-        return;
+      // 设置内容
+      this.notification.message = message;
+      this.notification.type = type;
+      this.notification.show = true;
+      // 清除上一次的定时器（防抖）
+      if (this.notification.timer) {
+        clearTimeout(this.notification.timer);
       }
-
-      const notification = document.createElement('div');
-      notification.className = `notification notification-${type}`;
-      notification.innerHTML = `
-    <div class="notification-icon">
-      ${type === 'error' ? '⚠️' : 'ℹ️'}
-    </div>
-    <div class="notification-content">${message}</div>
-  `;
-
-      container.appendChild(notification);
-      // 触发显示动画
-      setTimeout(() => notification.classList.add('show'), 10);
-      // 3秒后自动消失
-      setTimeout(() => {
-        notification.classList.remove('show');
-        setTimeout(() => notification.remove(), 300);
+      // 3秒后自动关闭
+      this.notification.timer = setTimeout(() => {
+        this.notification.show = false;
       }, 3000);
     },
 
     scrollToBottom() {
       this.$nextTick(() => {
         const messagesEl = this.$el.querySelector('.chat-messages');
-        if (messagesEl) {
-          messagesEl.scrollTop = messagesEl.scrollHeight;
-        }
+        if (messagesEl) messagesEl.scrollTop = messagesEl.scrollHeight;
       });
     }
   },
@@ -378,17 +518,15 @@ export default {
       this.$router.push('/login');
       return;
     }
-
-    // 页面加载时获取联系人列表
     this.getContactList();
-
+    this.getLanguages();
     if (this.userId) {
       this.ws = new WebSocket(`ws://localhost:8080/ws/${this.userId}`);
 
       this.ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
-          const senderId = data.userId || data.senderId; // 提取发送者ID
+          const senderId = data.userId || data.senderId;
 
           const message = {
             id: data.id || Date.now() + Math.random(),
@@ -396,34 +534,34 @@ export default {
             targetId: data.targetId,
             content: data.content,
             senderName: this.contacts.find(c => c.id === senderId)?.nickname || '未知用户',
-            timestamp: data.createTime || new Date()
+            timestamp: data.createTime || new Date(),
+            translatedContent: null,
+            isTranslating: false
           };
 
-          // 如果不是当前聊天对象，更新未读计数
           if (this.selectedContactId != senderId) {
-            // 未读计数+1（如果是新消息）
             this.unreadCounts[senderId] = (this.unreadCounts[senderId] || 0) + 1;
-
-            // 显示通知
             this.showNotification(`收到来自 "${message.senderName}" 的新消息`);
           } else {
-            // 当前聊天对象，直接添加消息
             this.messages.push(message);
+
+            // --- 新增：自动翻译逻辑 ---
+            if (this.autoTranslate) {
+              this.translateSingleMessage(message);
+            }
+
             this.scrollToBottom();
           }
 
-          // 更新联系人列表最后一条消息和排序（原有逻辑）
           const contactIndex = this.contacts.findIndex(c => c.id == senderId);
           if (contactIndex !== -1) {
             this.contacts[contactIndex].lastMessage = message.content;
             this.contacts.unshift(this.contacts.splice(contactIndex, 1)[0]);
           }
         } catch (e) {
-          console.warn('无法解析 WebSocket 消息:', e);
-          this.showNotification('收到一条系统通知。', 'info');
+          console.warn('WS error', e);
         }
       };
-
       this.ws.onclose = (event) => {
         console.log('WebSocket 连接已关闭:', event);
         this.showNotification('与服务器连接已断开。', 'error');
@@ -437,174 +575,24 @@ export default {
     }
   },
   beforeUnmount() {
-    if (this.ws) {
-      this.ws.close();
-    }
-  },
+    if (this.ws) this.ws.close();
+  }
 };
 </script>
 
 <style scoped>
-/* --- 整体布局 --- */
+/* 保持原有的 .app-container, .contacts-sidebar 等不变，只展示新增和修改的部分 */
+
 .app-container {
   display: flex;
-  height: 97vh; /* 设置为视口高度 */
+  height: 97vh;
   background-color: #f0f2f5;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
-/* 新增聊天按钮样式 (从子组件移过来) */
-.add-chat-item {
-  padding: 12px 16px;
-  display: flex;
-  align-items: center;
-  cursor: pointer;
-  transition: background-color 0.2s ease;
-  border-bottom: 1px solid #f0f0f0;
-  color: #42b983;
-  font-weight: 500;
-}
-
-.add-chat-item:hover {
-  background-color: #f0fdf4;
-}
-
-.add-chat-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background-color: #ecfdf5;
-  color: #42b983;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 20px;
-  margin-right: 12px;
-  flex-shrink: 0;
-}
-
-.add-chat-text {
-  font-size: 15px;
-}
-
-/* --- 左侧联系人侧边栏 --- */
-.contacts-sidebar {
-  width: 260px;
-  background-color: #ffffff;
-  border-right: 1px solid #e9e9eb;
-  display: flex;
-  flex-direction: column;
-}
-
-.sidebar-header {
-  padding: 16px;
-  border-bottom: 1px solid #e9e9eb;
-}
-
-.sidebar-header h3 {
-  margin: 0;
-  font-size: 18px;
-  color: #333;
-}
-
-.contacts-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  overflow-y: auto;
-  flex: 1;
-}
-
-.contacts-list li {
-  padding: 12px 16px;
-  display: flex;
-  align-items: center;
-  cursor: pointer;
-  transition: background-color 0.2s ease;
-  border-bottom: 1px solid #f0f0f0;
-  gap: 12px;
-}
-
-.contacts-list li:hover {
-  background-color: #f5f5f5;
-}
-
-.contacts-list li.active {
-  background-color: #e8f0fe;
-  border-left: 3px solid #42b983;
-}
-
-.contact-avatar {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background-color: #42b983;
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: bold;
-  margin-right: 12px;
-  flex-shrink: 0;
-}
-
-/* --- 联系人信息样式 --- */
-.contact-info {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  flex: 1; /* 让文本区域占据剩余空间 */
-  min-width: 0; /* 防止内容过长时 flex 布局异常 */
-}
-
-/* 未读红点样式（圆形 + 右侧中间） */
-.unread-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  background-color: #ff4d4f;
-  color: white;
-  font-size: 12px;
-  font-weight: bold;
-  border-radius: 50%; /* 圆形 */
-  flex-shrink: 0; /* 防止被压缩变形 */
-  margin-left: auto; /* 推到最右侧 */
-}
-
-.contact-name {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 4px;
-}
-
-.nickname {
-  font-size: 15px;
-  font-weight: 600; /* 昵称加粗 */
-  color: #333;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.username {
-  font-size: 12px;
-  color: #999; /* 用户名灰色 */
-  white-space: nowrap;
-}
-
-.last-message {
-  font-size: 12px;
-  color: #666;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* --- 右侧聊天区域 (样式未变) --- */
+/* Chat Container 需要 relative 定位作为通知的参照物 */
 .chat-container {
+  position: relative; /* 关键 */
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -612,243 +600,121 @@ export default {
   background-color: #f7f8fa;
 }
 
-/* 当前用户信息样式 */
-.current-user-item {
+/* --- 【新通知样式】 --- */
+.chat-notification {
+  position: absolute;
+  top: 70px; /* 位于头部下方 */
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+
+  /* 外观 */
+  background-color: #ffffff;
+  padding: 10px 20px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   display: flex;
   align-items: center;
-  padding: 8px 12px;
-  cursor: default;
-  margin-left: auto; /* 右对齐 */
+  gap: 8px;
+  min-width: 200px;
+  justify-content: center;
+  border: 1px solid #eee;
 }
 
-/* 退出按钮样式 */
-.logout-btn {
-  background: none;
-  border: none;
-  font-size: 12px;
-  color: #666;
-  cursor: pointer;
-  padding: 4px 8px;
-  border-radius: 4px;
-  transition: background-color 0.2s ease;
+.chat-notification.error {
+  border-left: 4px solid #ff4d4f;
+  color: #d32f2f;
 }
 
-.logout-btn:hover {
-  background-color: #f5f5f5;
-  color: #ff4d4f; /*  hover时变红 */
+.chat-notification.info {
+  border-left: 4px solid #42b983;
+  color: #333;
 }
 
+.notify-icon { font-size: 16px; }
+.notify-text { font-size: 14px; font-weight: 500; }
+
+/* Vue Transition 动画 */
+.slide-fade-enter-active, .slide-fade-leave-active {
+  transition: all 0.3s ease;
+}
+.slide-fade-enter, .slide-fade-leave-to {
+  transform: translate(-50%, -20px); /* 向上滑出 */
+  opacity: 0;
+}
+
+/* --- 侧边栏和列表样式 (保持原样) --- */
+.add-chat-item { padding: 12px 16px; display: flex; align-items: center; cursor: pointer; border-bottom: 1px solid #f0f0f0; color: #42b983; font-weight: 500; }
+.add-chat-item:hover { background-color: #f0fdf4; }
+.add-chat-icon { width: 40px; height: 40px; border-radius: 50%; background-color: #ecfdf5; color: #42b983; display: flex; align-items: center; justify-content: center; font-size: 20px; margin-right: 12px; flex-shrink: 0; }
+.add-chat-text { font-size: 15px; }
+.contacts-sidebar { width: 260px; background-color: #ffffff; border-right: 1px solid #e9e9eb; display: flex; flex-direction: column; }
+.sidebar-header { padding: 16px; border-bottom: 1px solid #e9e9eb; }
+.sidebar-header h3 { margin: 0; font-size: 18px; color: #333; }
+.contacts-list { list-style: none; padding: 0; margin: 0; overflow-y: auto; flex: 1; }
+.contacts-list li { padding: 12px 16px; display: flex; align-items: center; cursor: pointer; border-bottom: 1px solid #f0f0f0; gap: 12px; }
+.contacts-list li:hover { background-color: #f5f5f5; }
+.contacts-list li.active { background-color: #e8f0fe; border-left: 3px solid #42b983; }
+.contact-avatar { width: 40px; height: 40px; border-radius: 50%; background-color: #42b983; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; flex-shrink: 0; }
+.contact-info { display: flex; flex-direction: column; justify-content: center; flex: 1; min-width: 0; }
+.unread-badge { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; background-color: #ff4d4f; color: white; font-size: 12px; border-radius: 50%; margin-left: auto; }
+.contact-name { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.nickname { font-size: 15px; font-weight: 600; color: #333; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.username { font-size: 12px; color: #999; }
+.last-message { font-size: 12px; color: #666; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* --- 头部样式 --- */
 .chat-header {
-  padding: 14px 16px;
+  padding: 10px 16px;
   border-bottom: 1px solid #e9e9eb;
   background-color: #ffffff;
   display: flex;
   align-items: center;
+  justify-content: space-between;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
   z-index: 10;
 }
+.header-left { display: flex; align-items: center; gap: 12px; }
+.translation-controls { display: flex; align-items: center; gap: 12px; background-color: #f0f2f5; padding: 6px 12px; border-radius: 20px; }
+.switch-label { display: flex; align-items: center; cursor: pointer; font-size: 13px; color: #555; gap: 6px; }
+.lang-select { border: 1px solid #ddd; border-radius: 4px; padding: 2px 6px; font-size: 12px; outline: none; background: white; }
 
-.chat-header h2 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-  color: #333;
-}
+/* --- 消息区域 --- */
+.chat-messages { flex: 1; padding: 20px; overflow-y: auto; background-color: #f7f8fa; }
+.empty-chat-hint { text-align: center; color: #999; padding-top: 30%; font-size: 14px; }
+.message-list { display: flex; flex-direction: column; gap: 12px; }
+.message-item { display: flex; max-width: 80%; }
+.self-message { align-self: flex-end; }
+.other-message { align-self: flex-start; }
+.message-bubble { padding: 10px 14px; border-radius: 18px; position: relative; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1); max-width: 100%; word-break: break-word; }
+.self-message .message-bubble { background-color: #42b983; color: white; border-top-right-radius: 4px; }
+.other-message .message-bubble { background-color: #ffffff; color: #333; border: 1px solid #e0e0e0; border-top-left-radius: 4px; }
+.message-sender-container { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+.message-sender { font-size: 12px; opacity: 0.8; font-weight: 500; }
+.message-time { font-size: 11px; margin-left: 8px; opacity: 0.7; color: #999; }
+.self-message .message-time { color: white; }
+.translation-content { margin-top: 8px; font-size: 14px; }
+.self-message .translation-content { color: #e6fffa; }
+.other-message .translation-content { color: #4a5568; }
+.divider { height: 1px; background-color: rgba(0,0,0,0.1); margin: 6px 0; }
+.self-message .divider { background-color: rgba(255,255,255,0.3); }
+.trans-icon { font-size: 12px; margin-right: 4px; }
+.translating-spinner { font-size: 12px; margin-top: 4px; opacity: 0.7; font-style: italic; }
+.manual-trans-btn { display: block; margin-top: 4px; font-size: 11px; color: #42b983; background: none; border: 1px solid #42b983; border-radius: 10px; padding: 1px 6px; cursor: pointer; }
 
-.chat-messages {
-  flex: 1;
-  padding: 20px;
-  overflow-y: auto;
-  background-color: #f7f8fa;
-  background-size: cover;
-  background-position: center;
-}
-
-.empty-chat-hint {
-  text-align: center;
-  color: #999;
-  padding-top: 30%;
-  font-size: 14px;
-}
-
-.message-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.message-item {
-  display: flex;
-  max-width: 80%;
-}
-
-.self-message {
-  align-self: flex-end;
-}
-
-.other-message {
-  align-self: flex-start;
-}
-
-.message-bubble {
-  padding: 10px 14px;
-  border-radius: 18px;
-  position: relative;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-  /* 确保内容不会溢出 */
-  max-width: 100%;
-}
-
-.self-message .message-bubble {
-  background-color: #42b983;
-  color: white;
-  border-top-right-radius: 4px;
-}
-
-.other-message .message-bubble {
-  background-color: #ffffff;
-  color: #333;
-  border: 1px solid #e0e0e0;
-  border-top-left-radius: 4px;
-}
-
-/* 消息发送者容器（包含名字和时间） */
-.message-sender-container {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 4px;
-}
-
-.message-sender {
-  font-size: 12px;
-  opacity: 0.8;
-  font-weight: 500;
-}
-/* 时间戳样式 */
-.message-time {
-  font-size: 11px;
-  color: #999; /* 淡灰色 */
-  margin-left: 8px;
-  opacity: 0.7;
-}
-
-/* 他人消息的时间戳 - 淡灰色 */
-.other-message .message-time {
-  color: #999;
-}
-
-/* 自己消息的时间戳 - 白色 */
-.self-message .message-time {
-  color: white;
-}
-.message-content {
-  font-size: 15px;
-  line-height: 1.4;
-  word-break: break-word;
-}
-
-.chat-input-area {
-  display: flex;
-  padding: 12px 16px;
-  background-color: #ffffff;
-  border-top: 1px solid #e9e9eb;
-  gap: 10px;
-  align-items: center;
-}
-
-.message-input {
-  flex: 1;
-  padding: 12px 16px;
-  border: 1px solid #dcdfe6;
-  border-radius: 24px;
-  font-size: 14px;
-  transition: border-color 0.2s ease;
-  outline: none;
-}
-
-.message-input:focus {
-  border-color: #42b983;
-}
-
-.send-button {
-  padding: 12px 24px;
-  background-color: #42b983;
-  color: white;
-  border: none;
-  border-radius: 24px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background-color 0.2s ease;
-}
-
-.send-button:hover {
-  background-color: #36a47e;
-}
-
-.send-button:disabled {
-  background-color: #a0e5c1;
-  cursor: not-allowed;
-}
-
-/* 通知容器 - 固定定位在主窗口右上角 */
-.notification-wrapper {
-  position: fixed; /* 浮在所有内容上方 */
-  top: 20px;
-  right: 20px;
-  z-index: 9999; /* 确保在最上层 */
-  display: flex;
-  flex-direction: column;
-  gap: 12px; /* 通知之间的间距 */
-}
-
-/* --- 通知样式 --- */
-:deep(.notification) {
-  display: flex;
-  align-items: center;
-  padding: 12px 16px;
-  background-color: #fff;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  transform: translateX(120%);
-  opacity: 0;
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  max-width: 300px;
-}
-
-:deep(.notification.show) {
-  transform: translateX(0);
-  opacity: 1;
-}
-
-:deep(.notification-icon) {
-  font-size: 20px;
-  margin-right: 12px;
-  flex-shrink: 0;
-}
-
-:deep(.notification-content) {
-  font-size: 14px;
-  line-height: 1.4;
-  color: #333;
-}
-
-:deep(.notification-error) {
-  border-left: 4px solid #ff4d4f;
-  background-color: #fff2f0;
-}
-
-:deep(.notification-error .notification-content) {
-  color: #ff4d4f;
-}
-
-:deep(.notification-info) {
-  border-left: 4px solid #1890ff;
-  background-color: #e6f7ff;
-}
-
-:deep(.notification-info .notification-content) {
-  color: #1890ff;
-}
+/* --- 底部输入区 --- */
+.chat-input-wrapper { background-color: #ffffff; border-top: 1px solid #e9e9eb; display: flex; flex-direction: column; }
+.ai-toolbar { display: flex; gap: 8px; padding: 8px 16px 0 16px; align-items: center; }
+.ai-tool-btn { background-color: #f0f9eb; color: #42b983; border: 1px solid #e1f3d8; border-radius: 12px; padding: 4px 10px; font-size: 12px; cursor: pointer; transition: all 0.2s; }
+.ai-tool-btn:hover:not(:disabled) { background-color: #42b983; color: white; }
+.ai-tool-btn:disabled { opacity: 0.5; cursor: not-allowed; background-color: #f5f5f5; border-color: #ddd; color: #999; }
+.ai-loading { font-size: 12px; color: #999; font-style: italic; margin-left: auto; }
+.chat-input-area { display: flex; padding: 12px 16px; gap: 10px; align-items: center; }
+.message-input { flex: 1; padding: 12px 16px; border: 1px solid #dcdfe6; border-radius: 24px; font-size: 14px; outline: none; }
+.message-input:focus { border-color: #42b983; }
+.send-button { padding: 12px 24px; background-color: #42b983; color: white; border: none; border-radius: 24px; font-size: 14px; font-weight: 500; cursor: pointer; }
+.send-button:hover { background-color: #36a47e; }
+.current-user-item { display: flex; align-items: center; padding: 8px 12px; cursor: default; }
+.logout-btn { background: none; border: none; font-size: 12px; color: #666; cursor: pointer; padding: 4px 8px; border-radius: 4px; margin-left: 8px; }
+.logout-btn:hover { background-color: #f5f5f5; color: #ff4d4f; }
 </style>

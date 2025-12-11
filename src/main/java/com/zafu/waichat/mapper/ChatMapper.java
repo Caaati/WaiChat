@@ -14,4 +14,6 @@ public interface ChatMapper extends BaseMapper<Chat> {
     List<Chat> selectChatHistory(@Param("userId1") Long userId1, @Param("userId2") Long userId2);
 
     List<UserContactDTO> selectContactList(Long userId);
+
+    int updateStatus(@Param("userId") Integer userId, @Param("targetId") Integer targetId, @Param("status") Integer status);
 }

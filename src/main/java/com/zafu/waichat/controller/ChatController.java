@@ -1,11 +1,11 @@
 package com.zafu.waichat.controller;
 
-import com.zafu.waichat.pojo.dto.UserContactDTO;
-import com.zafu.waichat.util.Result;
-import com.zafu.waichat.websocket.WebSocket;
 import com.zafu.waichat.mapper.ChatMapper;
+import com.zafu.waichat.pojo.dto.UserContactDTO;
 import com.zafu.waichat.pojo.entity.Chat;
 import com.zafu.waichat.service.ChatService;
+import com.zafu.waichat.util.Result;
+import com.zafu.waichat.websocket.WebSocket;
 import io.swagger.annotations.Api;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -56,5 +56,17 @@ public class ChatController {
             @RequestParam Long userId) {
         List<UserContactDTO> contacts = chatService.getContactList(userId);
         return Result.success(contacts);
+    }
+
+    @PostMapping("/removeHistory")
+    public Result removeHistory(@RequestBody Chat chat) {
+        chatService.removeHistory(chat.getUserId(), chat.getTargetId());
+        return Result.success();
+    }
+
+    @PostMapping("/recoverHistory")
+    public Result recoverHistory(@RequestBody Chat chat) {
+        chatService.recoverHistory(chat.getUserId(), chat.getTargetId());
+        return Result.success();
     }
 }
