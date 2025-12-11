@@ -2,6 +2,8 @@ package com.zafu.waichat.controller;
 
 import com.alibaba.dashscope.aigc.generation.GenerationResult;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zafu.waichat.mapper.LanguageMapper;
 import com.zafu.waichat.pojo.dto.ChatDTO;
 import com.zafu.waichat.pojo.dto.PolishDTO;
@@ -17,6 +19,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/ai")
@@ -30,8 +33,9 @@ public class AIController {
     public Result getLanguages() {
         try {
             List<Language> languages = LanguageMapper.selectList(new QueryWrapper<>());
-            languages.forEach(l->{
+            languages.forEach(l -> {
 //                l.setName(l.getChineseName());
+                // 使用各语言的语言名称
                 l.setName(l.getDisplayName());
             });
             return Result.success(languages);
@@ -65,7 +69,6 @@ public class AIController {
             } else if (style.equals("casual")) {
                 sys += "【风格要求】将文本调整为**友好、轻松、非正式的休闲风格**（语气软化）。消除任何可能存在的攻击性或生硬感，使其听起来更自然亲切。";
             } else {
-                // 针对未指定风格的健壮性处理
                 sys += "【风格要求】未指定风格，请进行基础的语法和表达优化。";
             }
             sys += "【语言约束】润色后的文本**必须保持与原文本相同的语言**。" +
@@ -85,6 +88,7 @@ public class AIController {
 
     /**
      * 智能回复 API
+     *
      * @param chats 聊天历史记录列表
      * @return 回复文本
      */
@@ -117,11 +121,9 @@ public class AIController {
             }
             GenerationResult back = MessageUtil.callWithMessageNormal(sys, userPrompt);
             String result = back.getOutput().getChoices().get(0).getMessage().getContent().trim();
-
             return Result.success(result);
 
         } catch (Exception e) {
-            // 记录详细错误信息
             e.printStackTrace();
             return Result.error("智能回复生成失败: " + e.getMessage());
         }
@@ -129,20 +131,19 @@ public class AIController {
 
     /**
      * 聊天记录总结 API
+     *
      * @param chats 聊天历史记录列表
      * @return 总结后的文本
      */
     @PostMapping("/summarize")
     public Result summarize(@RequestBody List<ChatDTO> chats) {
         try {
-            // 设置系统提示词，要求LLM以简洁、分点的形式总结
             String sys = "你是一个专业的聊天记录总结助手。" +
                     "你的任务是将用户提供的聊天历史记录，以简洁、清晰、分点(1,2,3)的形式总结出核心内容、关键决策、待办事项和未解决的问题。" +
                     "总结必须使用历史记录中的主要语言。只输出总结文本，不要包含任何额外说明或标题。";
             StringBuilder historyText = new StringBuilder();
             chats.forEach(item -> {
-                // 拼装历史记录，格式与智能回复保持一致
-                String sender = item.getUserId(); // 假设 userId 已经被映射为 "我" 或 "对方"
+                String sender = item.getUserId();
                 String content = item.getContent();
                 if (sender != null && content != null) {
                     historyText.append(sender).append(": ").append(content).append("\n");
@@ -158,6 +159,61 @@ public class AIController {
         } catch (Exception e) {
             e.printStackTrace();
             return Result.error("聊天摘要生成失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 聊天数据分析 API (Dashboard)
+     * 后端负责解析 AI 返回的 JSON 字符串
+     */
+    @PostMapping("/analysis")
+    public Result analysis(@RequestBody List<java.util.Map<String, String>> chats) {
+        try {
+            // 准备系统提示词
+            String sys = "你是一个专业的数据分析师。请分析用户提供的聊天记录，并输出一个严格的 JSON 对象（不要包含Markdown代码块符号）。" +
+                    "JSON 结构必须包含以下字段：" +
+                    "1. 'keywords': 一个数组，包含前 8 个高频关键词，格式为 [{'name': '词语', 'value': 频率数值}]。" +
+                    "2. 'sentiment': 一个数组，包含最后 10 条消息的情感评分（1代表积极，0代表中性，-1代表消极）。" +
+                    "3. 'summary': 一段简短有趣的关于这段关系的总结（50字以内）。" +
+                    "请忽略常见的停用词（如'的', '了', '是'等）。";
+            // 拼装历史记录
+            StringBuilder historyText = new StringBuilder();
+            int start = Math.max(0, chats.size() - 50);
+            for (int i = start; i < chats.size(); i++) {
+                java.util.Map<String, String> item = chats.get(i);
+                String sender = item.get("userId");
+                String content = item.get("content");
+                if (sender != null && content != null) {
+                    historyText.append(sender).append(": ").append(content).append("\n");
+                }
+            }
+            String userPrompt = historyText.toString();
+            if (userPrompt.trim().isEmpty()) {
+                return Result.error("记录为空");
+            }
+
+            GenerationResult back = MessageUtil.callWithMessageNormal(sys, userPrompt);
+            String resultJson = back.getOutput().getChoices().get(0).getMessage().getContent().trim();
+
+            // 清理 Markdown 符号
+            if (resultJson.startsWith("```")) {
+                resultJson = resultJson.replaceAll("^```json", "").replaceAll("^```", "").replaceAll("```$", "");
+            }
+            // 使用 Jackson ObjectMapper 在后端解析 JSON
+            ObjectMapper mapper = new ObjectMapper();
+            // 解析为 Map<String, Object> 结构，方便 Spring Boot 自动序列化
+            Map<String, Object> analysisMap = mapper.readValue(resultJson, new TypeReference<Map<String, Object>>() {
+            });
+
+            return Result.success(analysisMap);
+
+        } catch (com.fasterxml.jackson.core.JsonParseException e) {
+            // 捕获 JSON 解析错误，说明 LLM 返回了不规范的格式
+            e.printStackTrace();
+            return Result.error("AI返回数据格式不规范，请重试或检查模型输出。");
+        } catch (Exception e) {
+            e.printStackTrace();
+            return Result.error("分析服务失败: " + e.getMessage());
         }
     }
 }
