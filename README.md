@@ -1,2 +1,2 @@
-# WaiChat
+# WaiChat-master
 AI多语言交流辅助平台
