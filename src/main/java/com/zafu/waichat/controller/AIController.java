@@ -5,11 +5,12 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zafu.waichat.mapper.LanguageMapper;
+import com.zafu.waichat.mapper.UserMapper;
 import com.zafu.waichat.pojo.dto.ChatDTO;
 import com.zafu.waichat.pojo.dto.PolishDTO;
 import com.zafu.waichat.pojo.dto.TranslateDTO;
-import com.zafu.waichat.pojo.entity.Chat;
 import com.zafu.waichat.pojo.entity.Language;
+import com.zafu.waichat.pojo.entity.User;
 import com.zafu.waichat.pojo.vo.TranslateVO;
 import com.zafu.waichat.util.MessageUtil;
 import com.zafu.waichat.util.Result;
@@ -28,6 +29,8 @@ import java.util.Map;
 public class AIController {
     @Autowired
     private LanguageMapper LanguageMapper;
+    @Autowired
+    private UserMapper userMapper;
 
     @GetMapping("/languages")
     public Result getLanguages() {
@@ -95,31 +98,65 @@ public class AIController {
     @PostMapping("/smartReply")
     public Result smartReply(@RequestBody List<ChatDTO> chats) {
         try {
-            String sys = "\"你是一个高度专业且高效的多语言聊天回复模型。\n" +
-                    "**角色:** 你代表历史聊天记录中的最后发言者 '我'。\n" +
-                    "**目标:** 根据完整的聊天历史记录，尤其是**对方最近的一条消息**，生成一条最合适且自然的回复。\n" +
+            String sys1 = "\"你是一个高度专业且高效的多语言聊天回复模型。\n";
+            String sys_role = "**角色:** 你代表历史聊天记录中的发言者 '我'。\n";
+            ChatDTO chatIds = chats.get(chats.size() - 1);
+            // 处理用户ID和目标用户信息
+            if (!"我".equals(chatIds.getUserId()) && !"对方".equals(chatIds.getUserId())) {
+                chats.remove(chatIds);
+                Integer userId = Integer.valueOf(chatIds.getUserId());
+                Integer targetId = Integer.valueOf(chatIds.getTargetId());
+                User user = userMapper.selectById(userId);
+                User target = userMapper.selectById(targetId);
+                sys_role += "**'我'的用户信息:** **昵称:**" + user.getNickname() + "**用户名:**" + user.getUsername() + "**ID:**" + user.getId() + "\n" +
+                        "**'对方'的用户信息:** **昵称:**" + target.getNickname() + "**用户名:**" + target.getUsername() + "**ID:**" + target.getId() + "\n";
+            }
+            // 判断聊天记录的最后一条有效消息的发言者（排除末尾的ID对象）
+            ChatDTO lastValidChat = null;
+            for (int i = chats.size() - 1; i >= 0; i--) {
+                ChatDTO chat = chats.get(i);
+                // 有效消息需包含userId（我/对方）和content
+                if (("我".equals(chat.getUserId()) || "对方".equals(chat   .getUserId())) && chat.getContent() != null && !chat.getContent().trim().isEmpty()) {
+                    lastValidChat = chat;
+                    break;
+                }
+            }
+            // 若无有效聊天记录，直接返回错误
+            if (lastValidChat == null) {
+                return Result.error("无有效聊天记录，无法生成智能回复。");
+            }
+            // 动态调整系统指令
+            String finalSpeaker = lastValidChat.getUserId();
+            String sys2 = "**目标:** 根据完整的聊天历史记录，尤其是**对方最近的一条消息**，生成一条最合适且自然的回复。\n" +
                     "**语言及语气要求:**\n" +
-                    "1.  回复的**语言**必须与聊天历史中**对方最近一条消息**的语言保持一致。\n" +
+                    "1.  回复的**语言**必须与聊天历史中** '我' 最近一条消息**的语言保持一致。\n" +
                     "2.  回复的**语气和风格**必须模仿 '我' 在历史记录中展现的风格。\n" +
                     "3.  回复必须**简短、直接、实用**。\n" +
                     "**格式约束:** 严格要求你**只输出回复文本本身**，不允许包含任何多余的问候、解释、标点、或标签（如 '回复:'）。\"";
+            if ("对方".equals(finalSpeaker)) {
+                // 最后发言者是对方：生成我对对方的回复
+                sys2 += "**注意:** 以'我'的视角回复对方的最后一条消息。";
+            } else {
+                // 最后发言者是我：生成我的下一句话，延续自己的发言逻辑
+                sys2 += "**注意:** 以'我'的视角继续发言，生成我的下一句话，无需回复对方（当前无对方新消息）。";
+            }
+
+            // 拼接历史消息（原有逻辑保留，确保格式正确）
             StringBuilder historyText = new StringBuilder();
             chats.forEach(item -> {
-                // 使用 userId 来区分发言者，并以 "发言者: 内容\n" 的形式拼装
-                // 示例格式: 我: 2222\n对方: 6666666666\n
                 String sender = item.getUserId();
                 String content = item.getContent();
-                if (sender != null && content != null) {
+                if (sender != null && content != null && !content.trim().isEmpty()) {
                     historyText.append(sender).append(": ").append(content).append("\n");
                 }
             });
-            // 添加回复指令或标识
             historyText.append("我: ");
             String userPrompt = historyText.toString();
             if (userPrompt.trim().isEmpty()) {
                 return Result.error("聊天记录为空，无法生成摘要。");
             }
-            GenerationResult back = MessageUtil.callWithMessageNormal(sys, userPrompt);
+            // 调用大模型生成回复
+            GenerationResult back = MessageUtil.callWithMessageNormal(sys1 + sys_role + sys2, userPrompt);
             String result = back.getOutput().getChoices().get(0).getMessage().getContent().trim();
             return Result.success(result);
 
