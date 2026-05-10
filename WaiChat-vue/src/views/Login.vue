@@ -1,18 +1,20 @@
 <template>
-  <div class="login-container">
-    <div class="login-box">
-      <h2>WaiChat登录</h2>
+  <div class="login-container wc-page">
+    <div class="login-box wc-glass-card">
+      <div class="brand-mark">WaiChat</div>
+      <h2>欢迎登录</h2>
+      <p class="subtitle">连接你的联系人与 AI 助手</p>
       <form @submit.prevent="handleLogin">
         <div class="form-group">
           <label>用户名</label>
-          <input type="text" v-model="username" required>
+          <input class="wc-input" type="text" v-model="username" required>
         </div>
         <div class="form-group">
           <label>密码</label>
-          <input type="password" v-model="password" required>
+          <input class="wc-input" type="password" v-model="password" required>
         </div>
-        <button type="submit" class="login-btn">登录</button>
-        <button type="button" class="register-btn" @click="toRegister">注册</button>
+        <button type="submit" class="login-btn wc-btn wc-btn-primary">登录</button>
+        <button type="button" class="register-btn wc-btn wc-btn-ghost" @click="toRegister">注册账号</button>
       </form>
     </div>
   </div>
@@ -64,75 +66,75 @@ export default {
 
 <style scoped>
 .login-container {
-  /* 核心：强制占满屏幕，禁止滚动 */
-  height: 100vh;
-  width: 100vw;
-  overflow: hidden;
+  position: fixed;
+  inset: 0;
   display: flex;
   justify-content: center;
   align-items: center;
-  background-color: #f5f5f5;
-  /* 防止手机浏览器地址栏导致的抖动 */
-  position: fixed;
-  top: 0;
-  left: 0;
-}
-
-.login-box {
-  background: white;
-  padding: 2rem;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-  width: 90%;
-  max-width: 400px;
+  padding: 24px;
+  overflow: auto;
   box-sizing: border-box;
 }
 
+.login-box {
+  width: min(92vw, 420px);
+  padding: 30px 26px;
+  box-sizing: border-box;
+}
+
+.brand-mark {
+  display: inline-flex;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #fff;
+  background: linear-gradient(135deg, var(--wc-primary), var(--wc-primary-strong));
+  margin-bottom: 14px;
+}
+
+h2 {
+  margin-bottom: 6px;
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.subtitle {
+  margin-bottom: 22px;
+  font-size: 14px;
+  color: var(--wc-text-secondary);
+}
+
 .form-group {
-  margin-bottom: 1rem;
+  margin-bottom: 14px;
 }
 
 label {
   display: block;
-  margin-bottom: 0.5rem;
-  color: #333;
-  font-weight: 500;
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: var(--wc-text-secondary);
+  font-weight: 600;
 }
 
-input {
-  width: 100%;
-  padding: 10px;
-  margin-top: 4px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  box-sizing: border-box; /* 确保 padding 不撑大宽度 */
-  font-size: 16px; /* 防止 iOS 输入框自动放大 */
-  outline: none;
-}
-
-input:focus {
-  border-color: #42b983;
-}
-
-.login-btn, .register-btn {
-  width: 100%;
-  padding: 10px;
-  margin-top: 1rem;
-  background: #42b983;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 16px;
-  font-weight: 500;
-}
-
+.login-btn,
 .register-btn {
-  background: #2196f3;
+  width: 100%;
   margin-top: 10px;
 }
 
-.login-btn:active, .register-btn:active {
-  opacity: 0.9;
+.register-btn {
+  margin-top: 8px;
+}
+
+@media (max-width: 480px) {
+  .login-box {
+    padding: 24px 18px;
+  }
+
+  h2 {
+    font-size: 24px;
+  }
 }
 </style>

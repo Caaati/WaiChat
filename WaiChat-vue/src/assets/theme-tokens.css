@@ -1,0 +1,55 @@
+:root {
+  color-scheme: light dark;
+
+  --wc-bg: #eef3ff;
+  --wc-bg-gradient:
+    radial-gradient(circle at 10% 20%, rgba(124, 153, 255, 0.2) 0%, transparent 30%),
+    radial-gradient(circle at 85% 10%, rgba(72, 194, 201, 0.2) 0%, transparent 35%),
+    linear-gradient(135deg, #eef3ff 0%, #e8f7ff 45%, #eef8f3 100%);
+
+  --wc-text: #1d2333;
+  --wc-text-secondary: #4f5c75;
+  --wc-muted: #7f8aa3;
+  --wc-primary: #4f7cff;
+  --wc-primary-strong: #3b66ea;
+  --wc-success: #2cb67d;
+  --wc-danger: #e85d75;
+  --wc-warning: #f29d38;
+
+  --wc-glass-bg: rgba(255, 255, 255, 0.65);
+  --wc-glass-bg-strong: rgba(255, 255, 255, 0.82);
+  --wc-glass-border: rgba(255, 255, 255, 0.7);
+  --wc-border-soft: rgba(141, 158, 190, 0.28);
+  --wc-shadow-1: 0 14px 30px rgba(89, 112, 171, 0.16);
+  --wc-shadow-2: 0 8px 18px rgba(70, 89, 141, 0.12);
+
+  --wc-radius-lg: 20px;
+  --wc-radius-md: 14px;
+  --wc-radius-sm: 10px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --wc-bg: #0f1524;
+    --wc-bg-gradient:
+      radial-gradient(circle at 10% 20%, rgba(95, 122, 214, 0.25) 0%, transparent 30%),
+      radial-gradient(circle at 85% 10%, rgba(58, 137, 164, 0.22) 0%, transparent 35%),
+      linear-gradient(145deg, #0f1524 0%, #141d31 45%, #132525 100%);
+
+    --wc-text: #ebf0ff;
+    --wc-text-secondary: #c4cee6;
+    --wc-muted: #8f9cbc;
+    --wc-primary: #79a0ff;
+    --wc-primary-strong: #5c86ef;
+    --wc-success: #45d29f;
+    --wc-danger: #ff8398;
+    --wc-warning: #f6b65e;
+
+    --wc-glass-bg: rgba(23, 31, 52, 0.58);
+    --wc-glass-bg-strong: rgba(25, 35, 60, 0.74);
+    --wc-glass-border: rgba(152, 171, 220, 0.25);
+    --wc-border-soft: rgba(120, 139, 182, 0.28);
+    --wc-shadow-1: 0 18px 40px rgba(0, 0, 0, 0.42);
+    --wc-shadow-2: 0 8px 20px rgba(0, 0, 0, 0.3);
+  }
+}

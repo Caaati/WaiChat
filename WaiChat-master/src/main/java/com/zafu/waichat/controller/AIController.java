@@ -26,9 +26,12 @@ import com.zafu.waichat.pojo.entity.Language;
 import com.zafu.waichat.pojo.entity.User;
 import com.zafu.waichat.pojo.vo.AudioVO;
 import com.zafu.waichat.pojo.vo.TranslateVO;
+import com.zafu.waichat.service.AuthUserService;
+import com.zafu.waichat.service.TerminologyMatchService;
 import com.zafu.waichat.util.LanguageEnum;
 import com.zafu.waichat.util.MessageUtil;
 import com.zafu.waichat.util.Result;
+import com.zafu.waichat.util.TerminologyPromptInjector;
 import io.swagger.annotations.Api;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -53,6 +56,10 @@ public class AIController {
     private LanguageMapper LanguageMapper;
     @Autowired
     private UserMapper userMapper;
+    @Autowired
+    private AuthUserService authUserService;
+    @Autowired
+    private TerminologyMatchService terminologyMatchService;
 
     @GetMapping("/languages")
     public Result getLanguages() {
@@ -72,11 +79,34 @@ public class AIController {
     @PostMapping("/translate")
     public Result translate(@RequestBody TranslateDTO translateDTO) {
         try {
-            GenerationResult back = MessageUtil.translateWithTarget(translateDTO.getText(), translateDTO.getTarget());
-            String result = back.getOutput().getChoices().get(0).getMessage().getContent();
+            String text = translateDTO.getText();
+            if (StringUtils.isEmpty(text)) {
+                return Result.error("文本不能为空");
+            }
+            String target = translateDTO.getTarget();
+            if (StringUtils.isEmpty(target)) {
+                return Result.error("目标语言不能为空");
+            }
+            Integer uid = authUserService.getCurrentUserIdOrNull();
+            String glossary = terminologyMatchService.buildGlossaryBlock(uid, text);
+            String result;
+            if (glossary != null && !glossary.isBlank()) {
+                String baseSys = "你是专业翻译助手。将用户消息中「【待翻译文本】」标记之后的正文翻译为目标语言。"
+                        + "目标语言标识：" + target + "（按常见语言代码理解，如 en、zh、ja、zh_tw 等）。"
+                        + "只输出译文正文，不要输出任何解释、标签、Markdown 或原文对照。"
+                        + "若下列术语表与正文相关，专有名词、产品名及与释义一致的概念在译文中须与术语表保持一致。"
+                        + "术语表中「别名」为推荐对应用语：当目标语言为中文（含 zh、zh_tw 等）且别名为中文时，原文里与「标准术语」或「别名」同指的专名，在译文中请写为该中文别名（例如标准术语为英文、别名为中文时，译文用别名而非音译或保留英文）。"
+                        + "当目标语言非中文时，别名为中文则主要作语义参考，请在目标语言中写出自然、地道的专名。"
+                        + "凡术语表某条标注「无别名：…保持与原文…」的，该词在译文中必须原样保留（与待译原文相同书写），不得翻译或替换为其它表达。";
+                String sys = TerminologyPromptInjector.mergeSystemPrompt(baseSys, glossary);
+                result = MessageUtil.callWithMessageNormal(sys, "【待翻译文本】\n" + text);
+            } else {
+                GenerationResult back = MessageUtil.translateWithTarget(text, target);
+                result = back.getOutput().getChoices().get(0).getMessage().getContent();
+            }
             TranslateVO vo = new TranslateVO();
-            vo.setTranslated(result);
-            vo.setOriginal(translateDTO.getText());
+            vo.setTranslated(result != null ? result.trim() : "");
+            vo.setOriginal(text);
             return Result.success(vo);
         } catch (Exception e) {
             return Result.error(e.getMessage());
@@ -118,6 +148,8 @@ public class AIController {
             }
             sys += "【语言约束】润色后的文本**必须保持与原文本相同的语言**。" +
                     "【格式约束】严格要求**只输出润色或调整后的文本本身**，不允许包含任何额外的解释、说明、标签或标点。";
+            Integer uid = authUserService.getCurrentUserIdOrNull();
+            sys = applyTerminology(uid, sys, text);
             String result = MessageUtil.callWithMessageNormal(sys, text);;
             // 增加对空内容的校验，防止模型返回空字符串
             if (result.isEmpty()) {
@@ -139,9 +171,13 @@ public class AIController {
     @PostMapping("/smartReply")
     public Result smartReply(@RequestBody List<ChatDTO> chats) {
         try {
+            ChatDTO chatIds = chats.get(chats.size() - 1);
+            Integer uidForTerms = resolveTerminologyUserIdFromTail(chatIds);
+            if (uidForTerms == null) {
+                uidForTerms = authUserService.getCurrentUserIdOrNull();
+            }
             String sys1 = "\"你是一个高度专业且高效的多语言聊天回复模型。\n";
             String sys_role = "**角色:** 你代表历史聊天记录中的发言者 '我'。\n";
-            ChatDTO chatIds = chats.get(chats.size() - 1);
             // 处理用户ID和目标用户信息
             if (!"我".equals(chatIds.getUserId()) && !"对方".equals(chatIds.getUserId())) {
                 chats.remove(chatIds);
@@ -197,7 +233,8 @@ public class AIController {
                 return Result.error("聊天记录为空，无法生成摘要。");
             }
             // 调用大模型生成回复
-            String result = MessageUtil.callWithMessageNormal(sys1 + sys_role + sys2, userPrompt);
+            String sys = applyTerminology(uidForTerms, sys1 + sys_role + sys2, userPrompt);
+            String result = MessageUtil.callWithMessageNormal(sys, userPrompt);
             return Result.success(result);
 
         } catch (Exception e) {
@@ -230,6 +267,8 @@ public class AIController {
             if (userPrompt.trim().isEmpty()) {
                 return Result.error("聊天记录为空，无法生成摘要。");
             }
+            Integer uid = authUserService.getCurrentUserIdOrNull();
+            sys = applyTerminology(uid, sys, userPrompt);
             String result = MessageUtil.callWithMessageNormal(sys, userPrompt);
             return Result.success(result);
         } catch (Exception e) {
@@ -268,6 +307,8 @@ public class AIController {
                 return Result.error("记录为空");
             }
 
+            Integer uid = authUserService.getCurrentUserIdOrNull();
+            sys = applyTerminology(uid, sys, userPrompt);
             String resultJson = MessageUtil.callWithMessageNormal(sys, userPrompt);
 
             // 清理 Markdown 符号
@@ -325,5 +366,24 @@ public class AIController {
                 tempFile.delete();
             }
         }
+    }
+
+    private static Integer resolveTerminologyUserIdFromTail(ChatDTO tail) {
+        if (tail == null || tail.getUserId() == null) {
+            return null;
+        }
+        if ("我".equals(tail.getUserId()) || "对方".equals(tail.getUserId())) {
+            return null;
+        }
+        try {
+            return Integer.valueOf(tail.getUserId());
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private String applyTerminology(Integer userIdForTerms, String sys, String corpus) {
+        String block = terminologyMatchService.buildGlossaryBlock(userIdForTerms, corpus);
+        return TerminologyPromptInjector.mergeSystemPrompt(sys, block);
     }
 }

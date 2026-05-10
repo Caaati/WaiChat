@@ -1,9 +1,9 @@
 <template>
   <div v-if="isVisible" class="modal-overlay">
-    <div class="modal">
+    <div class="modal wc-glass-card">
       <div class="modal-header">
         <h3>查找用户</h3>
-        <button class="close-btn" @click="closeModal">&times;</button>
+        <button class="close-btn" @click="closeModal" aria-label="关闭">&times;</button>
       </div>
       <div class="modal-body">
         <input
@@ -11,7 +11,7 @@
             v-model="searchQuery"
             @keyup.enter="fetchSearchResults(searchQuery)"
             placeholder="输入用户名、昵称或ID，按Enter搜索"
-            class="search-input"
+            class="search-input wc-input"
             ref="searchInput"
         />
         <div class="search-results">
@@ -121,32 +121,32 @@ export default {
 </script>
 
 <style scoped>
-/* 模态框样式 */
 .modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
+  background-color: rgba(8, 12, 24, 0.46);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000; /* 确保在最上层 */
+  z-index: 1000;
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
 }
 
 .modal {
   width: 90%;
-  max-width: 400px;
-  background-color: #fff;
-  border-radius: 8px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  max-width: 450px;
+  border-radius: var(--wc-radius-lg);
+  border: 1px solid var(--wc-border-soft);
   overflow: hidden;
 }
 
 .modal-header {
-  padding: 16px;
-  border-bottom: 1px solid #f0f0f0;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--wc-border-soft);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -154,75 +154,67 @@ export default {
 
 .modal-header h3 {
   margin: 0;
-  font-size: 18px;
-  color: #333;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--wc-text);
 }
 
 .close-btn {
-  background: none;
-  border: none;
-  font-size: 24px;
+  border: 1px solid var(--wc-border-soft);
+  border-radius: 8px;
+  padding: 2px 10px;
+  font-size: 22px;
   cursor: pointer;
-  color: #999;
-  padding: 0 8px;
+  color: var(--wc-text-secondary);
+  background: rgba(255, 255, 255, 0.2);
+  transition: background 0.18s ease;
 }
 
 .close-btn:hover {
-  color: #333;
+  background: rgba(255, 255, 255, 0.34);
 }
 
 .modal-body {
-  padding: 16px;
+  padding: 16px 18px 18px;
 }
 
-/* 搜索框样式 */
 .search-input {
-  width: 100%;
-  padding: 12px 16px;
-  border: 1px solid #dcdfe6;
-  border-radius: 24px;
   font-size: 14px;
   margin-bottom: 16px;
-  outline: none;
-  box-sizing: border-box;
 }
 
-.search-input:focus {
-  border-color: #42b983;
-}
-
-/* 搜索结果样式 */
 .search-results {
-  max-height: 300px;
+  max-height: 320px;
   overflow-y: auto;
 }
 
 .search-result-item {
-  padding: 12px;
+  padding: 10px 12px;
   display: flex;
   align-items: center;
+  gap: 10px;
   cursor: pointer;
-  transition: background-color 0.2s ease;
-  border-radius: 4px;
+  transition: background-color 0.18s ease;
+  border-radius: 12px;
+  border: 1px solid transparent;
   margin-bottom: 8px;
 }
 
 .search-result-item:hover {
-  background-color: #f5f5f5;
+  background-color: rgba(255, 255, 255, 0.2);
+  border-color: var(--wc-border-soft);
 }
 
-/* 联系人信息样式 (与主组件保持一致) */
 .contact-avatar {
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background-color: #42b983;
+  background: linear-gradient(135deg, var(--wc-primary), var(--wc-primary-strong));
   color: white;
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: bold;
-  margin-right: 12px;
   flex-shrink: 0;
 }
 
@@ -242,9 +234,9 @@ export default {
 }
 
 .nickname {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
-  color: #333;
+  color: var(--wc-text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -252,7 +244,7 @@ export default {
 
 .username, .user-id {
   font-size: 12px;
-  color: #999;
+  color: var(--wc-text-secondary);
   white-space: nowrap;
 }
 </style>
