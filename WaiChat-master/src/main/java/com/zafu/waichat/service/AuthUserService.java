@@ -15,6 +15,12 @@ public class AuthUserService {
     private UserMapper userMapper;
 
     public Integer getCurrentUserIdOrNull() {
+        User user = getCurrentUserEntityOrNull();
+        return user != null ? user.getId() : null;
+    }
+
+    /** 当前登录用户实体；未登录返回 null */
+    public User getCurrentUserEntityOrNull() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null || !auth.isAuthenticated()) {
             return null;
@@ -23,7 +29,6 @@ public class AuthUserService {
         if (username == null || "anonymousUser".equals(username)) {
             return null;
         }
-        User user = userMapper.selectOne(new QueryWrapper<User>().eq("username", username));
-        return user != null ? user.getId() : null;
+        return userMapper.selectOne(new QueryWrapper<User>().eq("username", username));
     }
 }

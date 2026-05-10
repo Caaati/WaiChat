@@ -174,7 +174,7 @@ public class TerminologyService {
         t.setClonedFromSystemId(null);
         terminologyMapper.insert(t);
         saveAliases(t.getId(), dto.getAliases());
-        terminologyCacheService.evictUser(userId);
+        terminologyCacheService.refreshUser(userId);
         return loadOneVo(t.getId());
     }
 
@@ -196,7 +196,7 @@ public class TerminologyService {
         terminologyMapper.updateById(existing);
         terminologyAliasMapper.delete(new QueryWrapper<TerminologyAlias>().eq("terminology_id", id));
         saveAliases(id, dto.getAliases());
-        terminologyCacheService.evictUser(userId);
+        terminologyCacheService.refreshUser(userId);
         return loadOneVo(id);
     }
 
@@ -208,7 +208,7 @@ public class TerminologyService {
         }
         terminologyAliasMapper.delete(new QueryWrapper<TerminologyAlias>().eq("terminology_id", id));
         terminologyMapper.deleteById(id);
-        terminologyCacheService.evictUser(userId);
+        terminologyCacheService.refreshUser(userId);
     }
 
     /**
@@ -291,7 +291,7 @@ public class TerminologyService {
                 created.add(vo);
             }
         }
-        terminologyCacheService.evictUser(userId);
+        terminologyCacheService.refreshUser(userId);
         return created;
     }
 

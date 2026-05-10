@@ -1,0 +1,293 @@
+<template>
+  <div class="profile-page wc-page">
+    <div class="profile-card wc-glass-card">
+      <header class="profile-head">
+        <button type="button" class="wc-btn wc-btn-ghost back-btn" @click="goChat">返回聊天</button>
+        <h1>个人中心</h1>
+        <p class="sub">保存昵称与用户名；用户名或密码修改成功后请重新登录。</p>
+        <p class="profile-id-inline mono">ID：{{ userId || '—' }}</p>
+      </header>
+
+      <p v-if="formError" class="form-error" role="alert">{{ formError }}</p>
+      <p v-if="formOk" class="form-ok" role="status">{{ formOk }}</p>
+
+      <form class="profile-form" @submit.prevent="handleSubmit">
+        <div class="form-group">
+          <label for="pf-nick">昵称</label>
+          <input id="pf-nick" v-model.trim="formNickname" class="wc-input" type="text" autocomplete="nickname" required />
+        </div>
+        <div class="form-group">
+          <label for="pf-user">用户名</label>
+          <input id="pf-user" v-model.trim="formUsername" class="wc-input" type="text" autocomplete="username" required />
+        </div>
+
+        <div class="pwd-actions">
+          <button
+            v-if="!showPasswordFields"
+            type="button"
+            class="wc-btn wc-btn-ghost pwd-toggle-btn"
+            @click="showPasswordFields = true"
+          >
+            修改密码
+          </button>
+          <template v-else>
+            <div class="form-group">
+              <label for="pf-new">新密码</label>
+              <input
+                id="pf-new"
+                v-model="newPassword"
+                class="wc-input"
+                type="password"
+                autocomplete="new-password"
+                placeholder="至少 6 位"
+              />
+            </div>
+            <div class="form-group">
+              <label for="pf-new2">确认新密码</label>
+              <input
+                id="pf-new2"
+                v-model="confirmPassword"
+                class="wc-input"
+                type="password"
+                autocomplete="new-password"
+                placeholder="再次输入新密码"
+              />
+            </div>
+            <button type="button" class="wc-btn wc-btn-ghost pwd-collapse-btn" @click="cancelPasswordChange">
+              收起
+            </button>
+          </template>
+        </div>
+
+        <button type="submit" class="wc-btn wc-btn-primary save-btn" :disabled="saving">
+          {{ saving ? '保存中…' : '保存' }}
+        </button>
+      </form>
+    </div>
+  </div>
+</template>
+
+<script>
+import axios from 'axios'
+import { CODES } from '@/constants/codes.js'
+
+const jsonCreds = {
+  withCredentials: true,
+  headers: { 'Content-Type': 'application/json' },
+}
+
+function apiMessage(res) {
+  const d = res && res.data
+  if (!d) return '请求失败'
+  return d.message || d.msg || '请求失败'
+}
+
+export default {
+  name: 'ProfileView',
+  data() {
+    return {
+      userId: '',
+      originalUsername: '',
+      formNickname: '',
+      formUsername: '',
+      showPasswordFields: false,
+      newPassword: '',
+      confirmPassword: '',
+      formError: '',
+      formOk: '',
+      saving: false,
+    }
+  },
+  mounted() {
+    this.userId = localStorage.getItem('userId') || ''
+    const u = localStorage.getItem('username') || ''
+    if (!u) {
+      this.$router.replace('/login')
+      return
+    }
+    this.originalUsername = u
+    this.formUsername = u
+    this.formNickname = localStorage.getItem('nickname') || u
+  },
+  methods: {
+    goChat() {
+      this.$router.push('/chat')
+    },
+    cancelPasswordChange() {
+      this.showPasswordFields = false
+      this.newPassword = ''
+      this.confirmPassword = ''
+    },
+    validateClient() {
+      if (!this.formNickname) return '请填写昵称'
+      if (!this.formUsername) return '请填写用户名'
+      if (!this.showPasswordFields) return ''
+      const np = this.newPassword || ''
+      const cp = this.confirmPassword || ''
+      const hasAny = np.length > 0 || cp.length > 0
+      if (!hasAny) return ''
+      if (!np || !cp) return '请填写新密码与确认新密码'
+      if (np !== cp) return '两次输入的新密码不一致'
+      if (np.length < 6) return '新密码至少 6 位'
+      return ''
+    },
+    clearMessages() {
+      this.formError = ''
+      this.formOk = ''
+    },
+    async handleSubmit() {
+      this.clearMessages()
+      const err = this.validateClient()
+      if (err) {
+        this.formError = err
+        return
+      }
+      const np = this.newPassword || ''
+      const cp = this.confirmPassword || ''
+      const passwordChanging = this.showPasswordFields && np.length > 0
+      this.saving = true
+      try {
+        const body = {
+          nickname: this.formNickname,
+          username: this.formUsername,
+        }
+        if (passwordChanging) {
+          body.newPassword = np
+          body.confirmPassword = cp
+        }
+        const res = await axios.put('/api/user/profile', body, jsonCreds)
+        if (res.data.code !== CODES.SUCCESS) {
+          this.formError = apiMessage(res)
+          return
+        }
+        const needRelogin = !!(res.data.data && res.data.data.needRelogin)
+        if (needRelogin) {
+          localStorage.clear()
+          alert('用户名或密码已更新，请重新登录')
+          this.$router.replace('/login')
+          return
+        }
+        localStorage.setItem('nickname', this.formNickname)
+        localStorage.setItem('username', this.formUsername)
+        this.originalUsername = this.formUsername
+        this.cancelPasswordChange()
+        this.formOk = '已保存'
+        setTimeout(() => {
+          this.formOk = ''
+        }, 2500)
+      } catch (e) {
+        const msg = e.response ? apiMessage(e.response) : '网络异常，请稍后重试'
+        this.formError = msg
+      } finally {
+        this.saving = false
+      }
+    },
+  },
+}
+</script>
+
+<style scoped>
+.profile-page {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 24px 16px 48px;
+  overflow: auto;
+  box-sizing: border-box;
+}
+
+.profile-card {
+  width: min(92vw, 440px);
+  padding: 22px 22px 28px;
+}
+
+.profile-head {
+  margin-bottom: 18px;
+}
+
+.profile-head h1 {
+  margin: 12px 0 6px;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--wc-text);
+}
+
+.sub {
+  margin: 0 0 10px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--wc-muted);
+}
+
+.profile-id-inline {
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--wc-text-secondary);
+  letter-spacing: 0.02em;
+}
+
+.back-btn {
+  margin-bottom: 4px;
+}
+
+.profile-form {
+  margin-top: 8px;
+}
+
+.form-group {
+  margin-bottom: 14px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--wc-text-secondary);
+}
+
+.mono {
+  font-family: ui-monospace, monospace;
+}
+
+.pwd-actions {
+  margin: 18px 0 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.pwd-toggle-btn,
+.pwd-collapse-btn {
+  align-self: flex-start;
+}
+
+.save-btn {
+  width: 100%;
+  margin-top: 16px;
+}
+
+.form-error {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 13px;
+  color: #b42318;
+  background: rgba(180, 35, 24, 0.08);
+  border: 1px solid rgba(180, 35, 24, 0.2);
+}
+
+.form-ok {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 13px;
+  color: var(--wc-text);
+  background: rgba(79, 124, 255, 0.12);
+  border: 1px solid rgba(79, 124, 255, 0.22);
+}
+</style>

@@ -130,16 +130,39 @@
             </select>
           </div>
 
-          <div class="current-user-item">
-            <div class="contact-avatar" v-if="!isMobileSimple">
-              <span>{{ nickname ? nickname.charAt(0) : '' }}</span>
-            </div>
-            <div class="current-user-meta">
-              <div class="current-user-nickname" v-if="!isMobileSimple">{{ nickname || '未登录' }}</div>
-              <button class="logout-btn" @click="handleLogout">
-                {{ isMobileSimple ? '退出' : '退出登录' }}
+          <div class="current-user-wrap" ref="userMenuRoot">
+            <div class="current-user-item">
+              <button
+                type="button"
+                class="user-avatar-trigger btn-reset"
+                :title="userMenuOpen ? '关闭菜单' : '账户菜单'"
+                aria-haspopup="menu"
+                :aria-expanded="userMenuOpen"
+                @click.stop="toggleUserMenu"
+              >
+                <div class="contact-avatar">
+                  <span>{{ nickname ? nickname.charAt(0) : '?' }}</span>
+                </div>
               </button>
+              <div class="current-user-meta" v-if="!isMobileSimple">
+                <div class="current-user-nickname">{{ nickname || '未登录' }}</div>
+              </div>
             </div>
+            <transition name="dropdown-fade">
+              <div
+                v-show="userMenuOpen"
+                class="user-dropdown"
+                role="menu"
+                @click.stop
+              >
+                <button type="button" class="user-dropdown-item" role="menuitem" @click="goProfile">
+                  个人中心
+                </button>
+                <button type="button" class="user-dropdown-item user-dropdown-item-warn" role="menuitem" @click="logoutFromMenu">
+                  退出登录
+                </button>
+              </div>
+            </transition>
           </div>
         </div>
       </div>
@@ -153,27 +176,64 @@
         </div>
         <div class="message-list">
           <div
-            v-for="msg in filteredMessages"
+            v-for="(msg, idx) in filteredMessages"
             :key="msg.id"
-            :class="['message-item', msg.senderId === userId ? 'self-message' : 'other-message']"
+            class="message-block"
           >
-            <div class="message-bubble">
-              <div class="message-sender-container">
-                <div class="message-sender">
-                  {{ msg.senderName || (msg.senderId === userId ? '我' : '未知用户') }}
-                </div>
-                <div class="message-time">
-                  {{ formatTime(msg.timestamp) }}
-                </div>
+            <div v-if="showTimeDividerForIndex(idx)" class="message-time-divider-wrap">
+              <div class="message-time-divider">{{ formatWeChatDividerTime(msg.timestamp) }}</div>
+            </div>
+
+            <div
+              :class="[
+                'message-row',
+                'message-item',
+                msg.senderId === userId ? 'self-message' : 'other-message',
+              ]"
+            >
+              <div class="message-peer-avatar" aria-hidden="true">
+                <span>{{ messageAvatarLetter(msg) }}</span>
               </div>
 
-              <div class="message-content">
-                <template v-if="msg.type === 'TEXT' || !msg.type">
-                  {{ msg.content }}
+              <div class="message-main">
+                <!-- 文本等：保留气泡 -->
+                <template v-if="msg.type !== 'VOICE'">
+                  <div class="message-bubble">
+                    <div class="message-content">
+                      {{ msg.content }}
+                    </div>
+
+                    <div v-if="msg.translatedContent" class="translation-content">
+                      <div class="divider"></div>
+                      <div class="translation-line">
+                        <div>
+                          <span class="trans-icon">{{ getFlag(msg.translatedToLang) }}</span>
+                          {{ msg.translatedContent }}
+                        </div>
+                        <button
+                          class="clear-trans-btn"
+                          @click.stop="clearTranslation(msg)"
+                          title="清除翻译"
+                        >
+                          ❌
+                        </button>
+                      </div>
+                    </div>
+                    <div v-else-if="msg.isTranslating" class="translating-spinner">翻译中...</div>
+
+                    <button
+                      v-if="!msg.translatedContent && msg.senderId !== userId && !msg.isTranslating"
+                      class="manual-trans-btn"
+                      @click="translateSingleMessage(msg)"
+                    >
+                      翻译
+                    </button>
+                  </div>
                 </template>
 
-                <template v-else-if="msg.type === 'VOICE'">
-                  <div class="voice-message-block">
+                <!-- 语音：无外侧气泡，仅语音条 + 下方操作（类微信） -->
+                <template v-else>
+                  <div class="message-voice-column">
                     <div
                       class="voice-player"
                       :style="voiceBarStyle(msg.duration)"
@@ -187,7 +247,6 @@
                           <line x1="8" y1="23" x2="16" y2="23" />
                         </svg>
                       </span>
-                      <span class="voice-wave" aria-hidden="true"></span>
                       <span class="voice-duration">{{ formatVoiceDuration(msg.duration) }}</span>
                       <audio :src="msg.audioUrl" ref="audioPlayer"></audio>
                     </div>
@@ -198,52 +257,49 @@
                     >
                       转文字
                     </button>
-                  </div>
-                </template>
-                <!-- 转文字加载中状态 -->
-                <div v-if="msg.isTranscribing" class="transcribing-spinner">转文字中...</div>
-                <!-- 转文字结果展示 -->
-                <div v-if="msg.textContent" class="voice-text-content">
-                  <div class="divider"></div>
-                  <div class="voice-text-line">
-                    📝 {{ msg.textContent }}
+                    <div v-if="msg.isTranscribing" class="transcribing-spinner">转文字中...</div>
+                    <div v-if="msg.textContent" class="voice-text-content">
+                      <div class="divider"></div>
+                      <div class="voice-text-line">
+                        📝 {{ msg.textContent }}
+                        <button
+                          class="clear-text-btn"
+                          @click.stop="clearVoiceText(msg)"
+                          title="清除文字"
+                        >
+                          ❌
+                        </button>
+                      </div>
+                    </div>
+
+                    <div v-if="msg.translatedContent" class="translation-content voice-translation">
+                      <div class="divider"></div>
+                      <div class="translation-line">
+                        <div>
+                          <span class="trans-icon">{{ getFlag(msg.translatedToLang) }}</span>
+                          {{ msg.translatedContent }}
+                        </div>
+                        <button
+                          class="clear-trans-btn"
+                          @click.stop="clearTranslation(msg)"
+                          title="清除翻译"
+                        >
+                          ❌
+                        </button>
+                      </div>
+                    </div>
+                    <div v-else-if="msg.isTranslating" class="translating-spinner">翻译中...</div>
+
                     <button
-                      class="clear-text-btn"
-                      @click.stop="clearVoiceText(msg)"
-                      title="清除文字"
+                      v-if="!msg.translatedContent && msg.senderId !== userId && !msg.isTranslating"
+                      class="manual-trans-btn"
+                      @click="translateSingleMessage(msg)"
                     >
-                      ❌
+                      翻译
                     </button>
                   </div>
-                </div>
-
+                </template>
               </div>
-
-              <div v-if="msg.translatedContent" class="translation-content">
-                <div class="divider"></div>
-                <div class="translation-line">
-                  <div>
-                    <span class="trans-icon">{{ getFlag(msg.translatedToLang) }}</span>
-                    {{ msg.translatedContent }}
-                  </div>
-                  <button
-                    class="clear-trans-btn"
-                    @click.stop="clearTranslation(msg)"
-                    title="清除翻译"
-                  >
-                    ❌
-                  </button>
-                </div>
-              </div>
-              <div v-else-if="msg.isTranslating" class="translating-spinner">翻译中...</div>
-
-              <button
-                v-if="!msg.translatedContent && msg.senderId !== userId && !msg.isTranslating"
-                class="manual-trans-btn"
-                @click="translateSingleMessage(msg)"
-              >
-                翻译
-              </button>
             </div>
           </div>
         </div>
@@ -482,8 +538,9 @@ import EmojiPicker from 'vue3-emoji-picker'
 import * as echarts from 'echarts'
 import {
   buildRealtimeMessage,
-  formatMessageTime,
+  formatWeChatTimeDivider,
   mapHistoryMessage,
+  shouldShowMessageTimeDivider,
 } from '@/views/chat/chatMessageUtils.js'
 
 export default {
@@ -551,6 +608,7 @@ export default {
       // --- 响应式适配新增 ---
       sidebarVisible: true, // 控制侧边栏是否可见
       isMobile: false, // 是否为移动端
+      userMenuOpen: false,
     }
   },
   computed: {
@@ -922,6 +980,11 @@ export default {
       }
     },
     handleGlobalKeyup(event) {
+      if (event.key === 'Escape' && this.userMenuOpen) {
+        event.preventDefault()
+        this.userMenuOpen = false
+        return
+      }
       if (this.aiSuggestion) {
         if (event.key === 'Enter') {
           event.preventDefault()
@@ -1002,6 +1065,22 @@ export default {
         this.aiProcessing = false
       }
     },
+    toggleUserMenu() {
+      this.userMenuOpen = !this.userMenuOpen
+    },
+    closeUserMenuOutside(e) {
+      const root = this.$refs.userMenuRoot
+      if (!this.userMenuOpen || !root) return
+      if (!root.contains(e.target)) this.userMenuOpen = false
+    },
+    goProfile() {
+      this.userMenuOpen = false
+      this.$router.push('/profile')
+    },
+    logoutFromMenu() {
+      this.userMenuOpen = false
+      this.handleLogout()
+    },
     handleLogout() {
       if (confirm('确定要退出登录吗？')) {
         if (this.ws) this.ws.close()
@@ -1038,8 +1117,21 @@ export default {
       }
       this.selectContact({ id: user.id, nickname: user.nickname, username: user.username })
     },
-    formatTime(timestamp) {
-      return formatMessageTime(timestamp)
+    showTimeDividerForIndex(idx) {
+      const list = this.filteredMessages
+      if (!list.length) return false
+      const msg = list[idx]
+      const prev = idx > 0 ? list[idx - 1] : null
+      return shouldShowMessageTimeDivider(prev?.timestamp, msg.timestamp, idx === 0)
+    },
+    formatWeChatDividerTime(timestamp) {
+      return formatWeChatTimeDivider(timestamp)
+    },
+    messageAvatarLetter(msg) {
+      if (msg.senderId == this.userId) {
+        return (this.nickname && this.nickname.charAt(0)) || '我'
+      }
+      return (this.currentContactName && this.currentContactName.charAt(0)) || '?'
     },
     formatVoiceDuration(sec) {
       const s = Number(sec)
@@ -1051,13 +1143,15 @@ export default {
       const raw = Number(durationSec)
       const sec = Number.isFinite(raw) && raw > 0 ? raw : 1
       const clamped = Math.min(Math.max(sec, 0.5), 120)
-      const minPx = 56
-      const maxPx = 228
+      const minPx = 64
+      const maxPx = 240
       const t = (clamped - 0.5) / (120 - 0.5)
-      const w = minPx + t * (maxPx - minPx)
+      const w = Math.round(minPx + t * (maxPx - minPx))
       return {
-        minWidth: `${Math.round(w)}px`,
-        transition: 'min-width 0.2s ease',
+        width: `${w}px`,
+        minWidth: `${w}px`,
+        maxWidth: `${maxPx}px`,
+        transition: 'width 0.2s ease, min-width 0.2s ease',
       }
     },
     async handleClearHistory() {
@@ -1467,6 +1561,7 @@ export default {
     this.getContactList()
     this.getLanguages()
     document.addEventListener('keyup', this.handleGlobalKeyup)
+    document.addEventListener('click', this.closeUserMenuOutside)
     if (this.userId) {
       this.ws = new WebSocket(`/ws/${this.userId}`)
       this.ws.onmessage = (event) => {
@@ -1517,6 +1612,7 @@ export default {
     window.removeEventListener('resize', this.checkScreenSize)
     if (this.ws) this.ws.close()
     document.removeEventListener('keyup', this.handleGlobalKeyup)
+    document.removeEventListener('click', this.closeUserMenuOutside)
   },
 }
 </script>
@@ -1760,7 +1856,6 @@ export default {
 
 .toggle-sidebar-btn,
 .icon-btn,
-.logout-btn,
 .summary-btn,
 .analysis-btn {
   border: 1px solid var(--wc-border-soft);
@@ -1791,7 +1886,6 @@ export default {
 
 .toggle-sidebar-btn:hover,
 .icon-btn:hover,
-.logout-btn:hover,
 .summary-btn:hover,
 .analysis-btn:hover {
   background: rgba(255, 255, 255, 0.36);
@@ -1830,11 +1924,81 @@ export default {
   font-size: 12px;
 }
 
+.current-user-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
 .current-user-item {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 2px 0 2px 6px;
+}
+
+.user-avatar-trigger {
+  padding: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  line-height: 0;
+}
+
+.user-avatar-trigger:focus-visible {
+  outline: 2px solid var(--wc-primary);
+  outline-offset: 2px;
+}
+
+.user-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 220;
+  min-width: 148px;
+  padding: 6px;
+  border-radius: 12px;
+  border: 1px solid var(--wc-border-soft);
+  background: var(--wc-glass-bg-strong);
+  box-shadow: var(--wc-shadow-2);
+  backdrop-filter: blur(10px);
+}
+
+.user-dropdown-item {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 10px 12px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  font-size: 14px;
+  font-weight: 500;
+  text-align: left;
+  color: var(--wc-text);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.user-dropdown-item:hover {
+  background: rgba(79, 124, 255, 0.12);
+}
+
+.user-dropdown-item-warn {
+  color: #b42318;
+}
+
+.user-dropdown-item-warn:hover {
+  background: rgba(180, 35, 24, 0.08);
+}
+
+.dropdown-fade-enter-active,
+.dropdown-fade-leave-active {
+  transition: opacity 0.12s ease, transform 0.12s ease;
+}
+
+.dropdown-fade-enter-from,
+.dropdown-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
 }
 
 .current-user-meta {
@@ -1873,26 +2037,77 @@ export default {
 .message-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 2px;
 }
 
-.message-item {
+.message-block {
   display: flex;
-  max-width: 78%;
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
 }
 
-.self-message {
+.message-time-divider-wrap {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  padding: 8px 0 6px;
+}
+
+.message-time-divider {
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--wc-muted);
+  padding: 3px 11px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.06);
+  text-align: center;
+}
+
+.message-row {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 10px;
+  max-width: min(90%, calc(100% - 12px));
+  width: fit-content;
+}
+
+.message-row.self-message {
   align-self: flex-end;
+  flex-direction: row-reverse;
 }
 
-.other-message {
+.message-row.other-message {
   align-self: flex-start;
+}
+
+.message-peer-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #fff;
+  font-weight: 700;
+  font-size: 15px;
+  background: linear-gradient(135deg, var(--wc-primary) 0%, var(--wc-primary-strong) 100%);
+}
+
+.message-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+  max-width: min(72vw, 520px);
 }
 
 .message-bubble {
   width: fit-content;
   max-width: 100%;
-  border-radius: 14px;
+  border-radius: 12px;
   padding: 10px 12px;
   border: 1px solid var(--wc-border-soft);
   word-break: break-word;
@@ -1905,25 +2120,9 @@ export default {
 }
 
 .other-message .message-bubble {
-  background: var(--wc-glass-bg-strong);
-}
-
-.message-sender-container {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 3px;
-}
-
-.message-sender {
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.message-time {
-  font-size: 11px;
-  opacity: 0.8;
+  background: #fff;
+  color: var(--wc-text);
+  border-color: rgba(0, 0, 0, 0.08);
 }
 
 .message-content {
@@ -1973,15 +2172,21 @@ export default {
   padding: 3px 8px;
 }
 
-.voice-message-block {
+.message-voice-column {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 8px;
-  width: 100%;
+  gap: 3px;
+  max-width: 280px;
 }
 
-.self-message .voice-message-block {
+/* 语音条以下（转写结果、翻译等）略松一点，避免挤在一起 */
+.message-voice-column .voice-text-content,
+.message-voice-column .voice-translation {
+  margin-top: 6px;
+}
+
+.message-row.self-message .message-voice-column {
   align-items: flex-end;
 }
 
@@ -1989,18 +2194,18 @@ export default {
   display: flex;
   align-items: center;
   gap: 6px;
-  width: fit-content;
-  max-width: 240px;
   box-sizing: border-box;
-  padding: 6px 10px;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.2);
-  border: 1px solid var(--wc-border-soft);
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: none;
   cursor: pointer;
+  box-shadow: var(--wc-shadow-2);
+  background: linear-gradient(135deg, var(--wc-primary), var(--wc-primary-strong));
+  color: #fff;
 }
 
-.other-message .voice-player {
-  background: rgba(0, 0, 0, 0.06);
+.message-row.self-message .voice-player {
+  flex-direction: row-reverse;
 }
 
 .voice-icon {
@@ -2011,38 +2216,27 @@ export default {
   opacity: 0.95;
 }
 
+.message-row.self-message .voice-icon {
+  transform: scaleX(-1);
+}
+
 .voice-mic-svg {
   width: 16px;
   height: 16px;
   display: block;
 }
 
-.voice-wave {
-  flex: 1;
-  min-width: 8px;
-  height: 4px;
-  border-radius: 999px;
-  background: linear-gradient(
-    90deg,
-    rgba(255, 255, 255, 0.35) 0%,
-    rgba(255, 255, 255, 0.85) 50%,
-    rgba(255, 255, 255, 0.35) 100%
-  );
-}
-
-.other-message .voice-wave {
-  background: linear-gradient(
-    90deg,
-    rgba(0, 0, 0, 0.1) 0%,
-    rgba(0, 0, 0, 0.28) 50%,
-    rgba(0, 0, 0, 0.1) 100%
-  );
-}
-
 .voice-duration {
   flex-shrink: 0;
   font-size: 12px;
-  opacity: 0.95;
+  font-weight: 600;
+  opacity: 0.98;
+  letter-spacing: 0.02em;
+}
+
+.voice-translation {
+  width: 100%;
+  max-width: 100%;
 }
 
 .translating-spinner,
@@ -2497,8 +2691,7 @@ export default {
   .summary-btn,
   .analysis-btn,
   .icon-btn,
-  .toggle-sidebar-btn,
-  .logout-btn {
+  .toggle-sidebar-btn {
     padding: 5px 8px;
     font-size: 12px;
   }

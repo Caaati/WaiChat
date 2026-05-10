@@ -47,6 +47,14 @@ public class TerminologyCacheService {
         }
     }
 
+    /**
+     * 用户词库变更后：删旧缓存并立即从库重建写入 Redis，避免键长时间缺失。
+     */
+    public void refreshUser(Integer userId) {
+        evictUser(userId);
+        loadUserSnapshot(userId);
+    }
+
     public List<TerminologyCacheDTO> loadSystemSnapshot() {
         String json = redisUtil.get(KEY_SYSTEM);
         if (json != null && !json.isEmpty()) {
