@@ -95,7 +95,7 @@ public class WebSocket {
         try {
             // 解析客户端发送的消息
             Chat chat = objectMapper.readValue(message, Chat.class);
-            // 补充发送者ID（从连接参数获取，防止伪造）
+            // 补充发送者ID
             chat.setUserId(this.userId);
             // 确保创建时间正确设置
             if (chat.getCreateTime() == null) {
@@ -150,23 +150,16 @@ public class WebSocket {
     public void sendOneMessage(Chat chat) throws Exception {
         String targetId = String.valueOf(chat.getTargetId());
         String senderId = String.valueOf(chat.getUserId());
-
-        // 1. 生成 Redis Key (保证 A->B 和 B->A 的 Key 一致)
+        // 生成 Redis Key
         String redisKey = getChatKey(senderId, targetId);
-
-        // 2. 预设一些数据库默认值（如创建时间），防止 Redis 和 MySQL 数据不一致
         chat.setCreateTime(LocalDateTime.now());
-
-        // 3. 同步写入 Redis 热数据（List 结构）
-        // 先转 JSON，再存入。这里使用 rPush (从右侧入队)
+        // 同步写入Redis热数据，先转JSON，再存入。rPush从右侧入队
         String messageJson = objectMapper.writeValueAsString(chat);
         redisUtil.lPush(redisKey, messageJson);
-
-        // 4. 重点：保持热数据长度，只留最近 50 条 (需要给 RedisUtil 增加 lTrim 方法)
+        // 限定热数据长度，只留最近50条
         // stringRedisTemplate.opsForList().trim(redisKey, 0, 49);
         redisUtil.expire(redisKey, 7, TimeUnit.DAYS); // 7天无消息则释放内存
-
-        // 5. 异步保存数据库（推荐用线程池或 MQ，这里演示简单异步）
+        // 步保存数据库（推荐用线程池或 MQ，这里演示简单异步）
         CompletableFuture.runAsync(() -> {
             try {
                 chatService.saveChatMessage(chat);
@@ -174,8 +167,7 @@ public class WebSocket {
                 log.error("数据库异步落库失败", e);
             }
         });
-
-        // 6. WebSocket 推送
+        // WebSocket 推送
         Session session = sessionPool.get(chat.getTargetId());
         if (session != null && session.isOpen()) {
             session.getAsyncRemote().sendText(messageJson, result -> {

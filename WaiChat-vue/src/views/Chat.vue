@@ -222,7 +222,7 @@
                     <div v-else-if="msg.isTranslating" class="translating-spinner">翻译中...</div>
 
                     <button
-                      v-if="!msg.translatedContent && msg.senderId !== userId && !msg.isTranslating"
+                      v-if="!msg.translatedContent && !msg.isTranslating"
                       class="manual-trans-btn"
                       @click="translateSingleMessage(msg)"
                     >
@@ -291,7 +291,7 @@
                     <div v-else-if="msg.isTranslating" class="translating-spinner">翻译中...</div>
 
                     <button
-                      v-if="!msg.translatedContent && msg.senderId !== userId && !msg.isTranslating"
+                      v-if="msg.textContent && !msg.translatedContent && !msg.isTranslating"
                       class="manual-trans-btn"
                       @click="translateSingleMessage(msg)"
                     >
@@ -649,6 +649,9 @@ export default {
         if (response.data.code === CODES.SUCCESS && response.data.data) {
           msg.textContent = response.data.data.text; // 保存转文字结果
           this.showNotification('语音转文字成功');
+          if (this.autoTranslate && msg.textContent && !msg.translatedContent) {
+            this.translateSingleMessage(msg)
+          }
         } else {
           this.showNotification(response.data.msg || '语音转文字失败', 'error');
         }
@@ -664,6 +667,8 @@ export default {
     clearVoiceText(msg) {
       if (msg) {
         msg.textContent = null;
+        msg.translatedContent = null
+        msg.translatedToLang = null
         this.$forceUpdate();
       }
     },
@@ -1239,10 +1244,17 @@ export default {
     },
     async translateSingleMessage(msg) {
       if (msg.translatedContent || msg.isTranslating) return
+      const sourceText =
+        msg.type === 'VOICE' ? (msg.textContent || '').trim() : (msg.content || '').trim()
+      if (msg.type === 'VOICE' && !sourceText) {
+        this.showNotification('请先使用「转文字」后再翻译', 'warning')
+        return
+      }
+      if (!sourceText) return
       msg.isTranslating = true
       try {
         const response = await axios.post('/api/ai/translate', {
-          text: msg.content,
+          text: sourceText,
           target: this.targetLang,
         })
         if (response.data.code === CODES.SUCCESS) {
@@ -1336,11 +1348,66 @@ export default {
       this.bars = new Array(20).fill(5);
     },
 
+    /**
+     * 非 HTTPS / 非 localhost 时 navigator.mediaDevices 常为 undefined，需提示或走旧版 API。
+     * Chrome「将不安全来源视为安全」若仍无效，多为 origin 与地址栏不一致或未彻底重启，见控制台说明。
+     */
+    requestMicStream() {
+      const md = navigator.mediaDevices
+      if (md && typeof md.getUserMedia === 'function') {
+        return md.getUserMedia({ audio: true })
+      }
+      const legacy =
+        navigator.getUserMedia ||
+        navigator.webkitGetUserMedia ||
+        navigator.mozGetUserMedia ||
+        navigator.msGetUserMedia
+      if (typeof legacy === 'function') {
+        return new Promise((resolve, reject) => {
+          legacy.call(navigator, { audio: true }, resolve, reject)
+        })
+      }
+      const origin = typeof location !== 'undefined' ? location.origin : '(未知)'
+      const secure = typeof window !== 'undefined' ? window.isSecureContext : false
+      console.warn(
+        `[WaiChat 麦克风] 当前页无 navigator.mediaDevices（isSecureContext=${secure}）。\n` +
+          `请在 chrome://flags/#unsafely-treat-insecure-origin-as-secure 的输入框中粘贴**下面整行**（须与地址栏完全一致，一项一行多个用英文逗号分隔）：\n` +
+          `  ${origin}\n` +
+          '常见原因：① 写成了 https 或漏了端口；② 用 127.0.0.1 打开却填了 localhost（或相反）；③ 用 IP 打开却填了主机名；④ 改完未从系统托盘/任务管理器彻底结束 Chrome 再启动；⑤ 企业策略禁用该实验项。更稳妥：Vite 开启 https（自签/mkcert）或正式 HTTPS。',
+      )
+      return Promise.reject(
+        new Error('非安全连接下浏览器未开放麦克风。请按 F12 查看控制台中的 origin 与说明，或改用 HTTPS。'),
+      )
+    },
+
+    micErrorMessage(err) {
+      const name = err && err.name
+      const raw = err && err.message != null ? String(err.message) : ''
+      const lower = raw.toLowerCase()
+      // Chromium：系统未向浏览器授权麦克风时常报 Permission denied by system
+      if (
+        name === 'NotAllowedError' &&
+        (lower.includes('denied by system') || lower.includes('permission denied by system'))
+      ) {
+        return '系统未向 Chrome 开放麦克风：请到系统「隐私/麦克风」设置中允许 Google Chrome；再在地址栏锁图标 → 网站设置中将本站麦克风设为「允许」。'
+      }
+      if (name === 'NotAllowedError') {
+        return '麦克风权限被拒绝：请点击地址栏左侧「锁形/信息图标」→ 网站设置 → 麦克风 → 允许；若已拒绝过，请改为「询问」后刷新页面再试。'
+      }
+      if (name === 'NotFoundError') {
+        return '未检测到麦克风设备'
+      }
+      if (raw && !raw.includes('undefined')) {
+        return raw
+      }
+      return '无法访问麦克风：请通过 HTTPS 或 localhost 打开，并检查浏览器与系统权限'
+    },
+
     // ---------------- PC 端录音逻辑 ----------------
     async startPcRecording() {
       if (this.isPcRecording) return;
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const stream = await this.requestMicStream();
         this.isPcRecording = true;
         this.recordStartTime = Date.now();
         this.recordDuration = 0;
@@ -1355,8 +1422,8 @@ export default {
           this.recordDuration = Math.round((Date.now() - this.recordStartTime) / 1000);
         }, 1000);
       } catch (err) {
-        console.error("麦克风权限错误:", err);
-        this.showNotification('无法访问麦克风，请检查权限或HTTPS设置', 'error')
+        console.error('麦克风权限错误:', err)
+        this.showNotification(this.micErrorMessage(err), 'error')
       }
     },
 
@@ -1400,7 +1467,7 @@ export default {
         this.recordDuration = Math.round((Date.now() - this.recordStartTime) / 1000);
       }, 1000);
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const stream = await this.requestMicStream()
         // 启动波形可视化
         this.initVisualizer(stream);
 
@@ -1411,9 +1478,13 @@ export default {
         };
         this.mediaRecorder.start();
       } catch (error) {
-        console.error("麦克风调用失败:", error);
-        this.isMobileRecording = false; // 【修正】
-        this.showNotification('无法访问麦克风', 'error')
+        console.error('麦克风调用失败:', error)
+        this.isMobileRecording = false // 【修正】
+        if (this.timerInterval) {
+          clearInterval(this.timerInterval)
+          this.timerInterval = null
+        }
+        this.showNotification(this.micErrorMessage(error), 'error')
       }
     },
     handleTouchMove(e) {
@@ -1591,7 +1662,13 @@ export default {
           } else {
             this.messages.push(message)
             if (this.autoTranslate) {
-              this.translateSingleMessage(message)
+              const canAutoVoice =
+                message.type === 'VOICE'
+                  ? !!(message.textContent && String(message.textContent).trim())
+                  : true
+              if (canAutoVoice) {
+                this.translateSingleMessage(message)
+              }
             }
             this.scrollToBottom()
           }

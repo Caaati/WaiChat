@@ -17,9 +17,11 @@ import com.alibaba.dashscope.exception.UploadFileException;
 import com.alibaba.dashscope.utils.JsonUtils;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static com.zafu.waichat.util.StringUtil.stringOf;
@@ -75,15 +77,26 @@ public class MessageUtil {
 //    }
 
     public static GenerationResult translateWithTarget(String msg, String target) throws ApiException, NoApiKeyException, InputRequiredException {
+        return translateWithTarget(msg, target, null);
+    }
+
+    /**
+     * 机器翻译；{@code terms} 非空时通过 {@link TranslationOptions} 传入术语表（与控制台「术语干预」一致）。
+     */
+    public static GenerationResult translateWithTarget(String msg, String target, List<TranslationOptions.Term> terms)
+            throws ApiException, NoApiKeyException, InputRequiredException {
         Generation gen = new Generation();
         Message userMsg = Message.builder()
                 .role(Role.USER.getValue())
                 .content(msg)
                 .build();
-        TranslationOptions options = TranslationOptions.builder()
+        var opt = TranslationOptions.builder()
                 .sourceLang("auto")
-                .targetLang(target)
-                .build();
+                .targetLang(target);
+        if (terms != null && !terms.isEmpty()) {
+            opt.terms(new ArrayList<>(terms));
+        }
+        TranslationOptions options = opt.build();
         GenerationParam param = GenerationParam.builder()
                 .apiKey(apiKey)
                 .model(ModelConstants.MT_LITE)

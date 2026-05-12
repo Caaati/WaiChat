@@ -1,6 +1,7 @@
 package com.zafu.waichat.controller;
 
 import com.alibaba.dashscope.aigc.generation.GenerationResult;
+import com.alibaba.dashscope.aigc.generation.TranslationOptions;
 import com.alibaba.dashscope.aigc.multimodalconversation.MultiModalConversation;
 import com.alibaba.dashscope.aigc.multimodalconversation.MultiModalConversationParam;
 import com.alibaba.dashscope.aigc.multimodalconversation.MultiModalConversationResult;
@@ -21,6 +22,7 @@ import com.zafu.waichat.mapper.UserMapper;
 import com.zafu.waichat.pojo.dto.AudioDTO;
 import com.zafu.waichat.pojo.dto.ChatDTO;
 import com.zafu.waichat.pojo.dto.PolishDTO;
+import com.zafu.waichat.pojo.dto.TerminologyTranslationPair;
 import com.zafu.waichat.pojo.dto.TranslateDTO;
 import com.zafu.waichat.pojo.entity.Language;
 import com.zafu.waichat.pojo.entity.User;
@@ -40,6 +42,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -88,22 +91,19 @@ public class AIController {
                 return Result.error("目标语言不能为空");
             }
             Integer uid = authUserService.getCurrentUserIdOrNull();
-            String glossary = terminologyMatchService.buildGlossaryBlock(uid, text);
-            String result;
-            if (glossary != null && !glossary.isBlank()) {
-                String baseSys = "你是专业翻译助手。将用户消息中「【待翻译文本】」标记之后的正文翻译为目标语言。"
-                        + "目标语言标识：" + target + "（按常见语言代码理解，如 en、zh、ja、zh_tw 等）。"
-                        + "只输出译文正文，不要输出任何解释、标签、Markdown 或原文对照。"
-                        + "若下列术语表与正文相关，专有名词、产品名及与释义一致的概念在译文中须与术语表保持一致。"
-                        + "术语表中「别名」为推荐对应用语：当目标语言为中文（含 zh、zh_tw 等）且别名为中文时，原文里与「标准术语」或「别名」同指的专名，在译文中请写为该中文别名（例如标准术语为英文、别名为中文时，译文用别名而非音译或保留英文）。"
-                        + "当目标语言非中文时，别名为中文则主要作语义参考，请在目标语言中写出自然、地道的专名。"
-                        + "凡术语表某条标注「无别名：…保持与原文…」的，该词在译文中必须原样保留（与待译原文相同书写），不得翻译或替换为其它表达。";
-                String sys = TerminologyPromptInjector.mergeSystemPrompt(baseSys, glossary);
-                result = MessageUtil.callWithMessageNormal(sys, "【待翻译文本】\n" + text);
-            } else {
-                GenerationResult back = MessageUtil.translateWithTarget(text, target);
-                result = back.getOutput().getChoices().get(0).getMessage().getContent();
+            List<TerminologyTranslationPair> pairs = terminologyMatchService.buildTranslationTermPairs(uid, text);
+            List<TranslationOptions.Term> terms = new ArrayList<>();
+            for (TerminologyTranslationPair p : pairs) {
+                if (p.getSource() == null || p.getTarget() == null) {
+                    continue;
+                }
+                terms.add(TranslationOptions.Term.builder()
+                        .source(p.getSource().trim())
+                        .target(p.getTarget().trim())
+                        .build());
             }
+            GenerationResult back = MessageUtil.translateWithTarget(text, target, terms.isEmpty() ? null : terms);
+            String result = back.getOutput().getChoices().get(0).getMessage().getContent();
             TranslateVO vo = new TranslateVO();
             vo.setTranslated(result != null ? result.trim() : "");
             vo.setOriginal(text);

@@ -11,7 +11,7 @@
 
       <div class="tabs">
         <button type="button" :class="['tab', { active: tab === 'mine' }]" @click="tab = 'mine'">我的术语</button>
-        <button type="button" :class="['tab', { active: tab === 'system' }]" @click="tab = 'system'">系统默认（只读）</button>
+        <button type="button" :class="['tab', { active: tab === 'system' }]" @click="tab = 'system'">系统默认</button>
       </div>
 
       <div v-if="tab === 'mine'" class="panel">
@@ -21,14 +21,33 @@
         <p v-if="loadError" class="err">{{ loadError }}</p>
         <template v-else>
           <section v-for="g in mineGrouped.groups" :key="'mg' + g.groupId" class="group-block">
-            <h3 class="group-title">{{ g.groupName }}</h3>
-            <div class="table-wrap">
-              <table class="term-table">
+            <button
+              type="button"
+              class="group-title-btn"
+              :aria-expanded="mineGroupOpen(g.groupId)"
+              @click="toggleMineGroup(g.groupId)"
+            >
+              <span class="group-chev" :class="{ open: mineGroupOpen(g.groupId) }" aria-hidden="true">▶</span>
+              <span class="group-title-text">{{ g.groupName }}</span>
+              <span class="group-meta">{{ (g.entries || []).length }} 条</span>
+            </button>
+            <div v-show="mineGroupOpen(g.groupId)" class="group-body">
+              <div class="table-wrap">
+              <table class="term-table term-table-mine">
+                <colgroup>
+                  <col class="col-term" />
+                  <col class="col-alias" />
+                  <col class="col-def" />
+                  <col class="col-weight" />
+                  <col class="col-enabled" />
+                  <col class="col-src" />
+                  <col class="col-actions" />
+                </colgroup>
                 <thead>
                   <tr>
                     <th>术语</th>
-                    <th>释义</th>
                     <th>别名</th>
+                    <th>释义</th>
                     <th>权重</th>
                     <th>启用</th>
                     <th>来源</th>
@@ -37,12 +56,22 @@
                 </thead>
                 <tbody>
                   <tr v-for="row in g.entries" :key="row.id">
-                    <td>{{ row.term }}</td>
-                    <td class="def">{{ row.definition }}</td>
-                    <td>{{ (row.aliases || []).join('、') }}</td>
-                    <td>{{ row.sortWeight }}</td>
-                    <td>{{ row.enabled === 1 ? '是' : '否' }}</td>
-                    <td>
+                    <td class="cell-term">{{ row.term }}</td>
+                    <td class="cell-alias">{{ (row.aliases || []).join('、') }}</td>
+                    <td class="def cell-def">{{ row.definition }}</td>
+                    <td class="cell-weight">{{ row.sortWeight }}</td>
+                    <td class="cell-enabled">
+                      <button
+                        type="button"
+                        class="enabled-toggle"
+                        :class="{ 'is-on': row.enabled === 1 }"
+                        :disabled="togglingTermId === row.id"
+                        @click="toggleRowEnabled(row)"
+                      >
+                        {{ row.enabled === 1 ? '已启用' : '未启用' }}
+                      </button>
+                    </td>
+                    <td class="cell-src">
                       <span v-if="row.clonedFromSystemId" class="badge-sys">系统副本</span>
                       <span v-else class="badge-own">自填</span>
                     </td>
@@ -53,18 +82,28 @@
                   </tr>
                 </tbody>
               </table>
+              </div>
             </div>
           </section>
 
           <section v-if="mineGrouped.ungrouped && mineGrouped.ungrouped.length" class="group-block">
             <h3 class="group-title">自定义 / 未分组</h3>
             <div class="table-wrap">
-              <table class="term-table">
+              <table class="term-table term-table-mine">
+                <colgroup>
+                  <col class="col-term" />
+                  <col class="col-alias" />
+                  <col class="col-def" />
+                  <col class="col-weight" />
+                  <col class="col-enabled" />
+                  <col class="col-src" />
+                  <col class="col-actions" />
+                </colgroup>
                 <thead>
                   <tr>
                     <th>术语</th>
-                    <th>释义</th>
                     <th>别名</th>
+                    <th>释义</th>
                     <th>权重</th>
                     <th>启用</th>
                     <th>来源</th>
@@ -73,12 +112,22 @@
                 </thead>
                 <tbody>
                   <tr v-for="row in mineGrouped.ungrouped" :key="row.id">
-                    <td>{{ row.term }}</td>
-                    <td class="def">{{ row.definition }}</td>
-                    <td>{{ (row.aliases || []).join('、') }}</td>
-                    <td>{{ row.sortWeight }}</td>
-                    <td>{{ row.enabled === 1 ? '是' : '否' }}</td>
-                    <td>
+                    <td class="cell-term">{{ row.term }}</td>
+                    <td class="cell-alias">{{ (row.aliases || []).join('、') }}</td>
+                    <td class="def cell-def">{{ row.definition }}</td>
+                    <td class="cell-weight">{{ row.sortWeight }}</td>
+                    <td class="cell-enabled">
+                      <button
+                        type="button"
+                        class="enabled-toggle"
+                        :class="{ 'is-on': row.enabled === 1 }"
+                        :disabled="togglingTermId === row.id"
+                        @click="toggleRowEnabled(row)"
+                      >
+                        {{ row.enabled === 1 ? '已启用' : '未启用' }}
+                      </button>
+                    </td>
+                    <td class="cell-src">
                       <span v-if="row.clonedFromSystemId" class="badge-sys">系统副本</span>
                       <span v-else class="badge-own">自填</span>
                     </td>
@@ -113,13 +162,20 @@
           <section v-if="systemTree.ungrouped && systemTree.ungrouped.length" class="group-block">
             <h3 class="group-title">无组词条</h3>
             <div class="table-wrap">
-              <table class="term-table">
+              <table class="term-table term-table-system">
+                <colgroup>
+                  <col class="col-chk" />
+                  <col class="col-term-sys" />
+                  <col class="col-alias-sys" />
+                  <col class="col-def-sys" />
+                  <col class="col-status-sys" />
+                </colgroup>
                 <thead>
                   <tr>
                     <th class="col-chk">选择</th>
                     <th>术语</th>
-                    <th>释义</th>
                     <th>别名</th>
+                    <th>释义</th>
                     <th>状态</th>
                   </tr>
                 </thead>
@@ -137,10 +193,10 @@
                         @change="onSystemCheckChange(row.id, $event.target.checked)"
                       />
                     </td>
-                    <td>{{ row.term }}</td>
-                    <td class="def">{{ row.definition }}</td>
-                    <td>{{ (row.aliases || []).join('、') }}</td>
-                    <td>
+                    <td class="cell-term">{{ row.term }}</td>
+                    <td class="cell-alias">{{ (row.aliases || []).join('、') }}</td>
+                    <td class="def cell-def">{{ row.definition }}</td>
+                    <td class="cell-status">
                       <span v-if="isSystemImported(row.id)" class="badge-in">已在我的术语</span>
                       <span v-else class="muted">可选</span>
                     </td>
@@ -151,29 +207,46 @@
           </section>
 
           <section v-for="grp in systemTree.groups" :key="'sg' + grp.groupId" class="group-block">
-            <div class="group-head">
-              <h3 class="group-title">{{ grp.groupName }}</h3>
-              <div class="group-actions">
-                <button type="button" class="wc-btn wc-btn-ghost btn-sm" @click="selectAllInGroup(grp)">全选本组</button>
-                <button type="button" class="wc-btn wc-btn-ghost btn-sm" @click="clearGroupSelection(grp)">取消本组</button>
-                <button
-                  type="button"
-                  class="wc-btn wc-btn-primary btn-sm"
-                  :disabled="importing"
-                  @click="importGroupAll(grp.groupId)"
-                >
-                  加入本组全部
-                </button>
+            <button
+              type="button"
+              class="group-title-btn"
+              :aria-expanded="systemGroupOpen(grp.groupId)"
+              @click="toggleSystemGroup(grp.groupId)"
+            >
+              <span class="group-chev" :class="{ open: systemGroupOpen(grp.groupId) }" aria-hidden="true">▶</span>
+              <span class="group-title-text">{{ grp.groupName }}</span>
+              <span class="group-meta">{{ (grp.entries || []).length }} 条</span>
+            </button>
+            <div v-show="systemGroupOpen(grp.groupId)" class="group-body">
+              <div class="group-head">
+                <div class="group-actions">
+                  <button type="button" class="wc-btn wc-btn-ghost btn-sm" @click="selectAllInGroup(grp)">全选本组</button>
+                  <button type="button" class="wc-btn wc-btn-ghost btn-sm" @click="clearGroupSelection(grp)">取消本组</button>
+                  <button
+                    type="button"
+                    class="wc-btn wc-btn-primary btn-sm"
+                    :disabled="importing"
+                    @click="importGroupAll(grp.groupId)"
+                  >
+                    加入本组全部
+                  </button>
+                </div>
               </div>
-            </div>
-            <div class="table-wrap">
-              <table class="term-table">
+              <div class="table-wrap">
+              <table class="term-table term-table-system">
+                <colgroup>
+                  <col class="col-chk" />
+                  <col class="col-term-sys" />
+                  <col class="col-alias-sys" />
+                  <col class="col-def-sys" />
+                  <col class="col-status-sys" />
+                </colgroup>
                 <thead>
                   <tr>
                     <th class="col-chk">选择</th>
                     <th>术语</th>
-                    <th>释义</th>
                     <th>别名</th>
+                    <th>释义</th>
                     <th>状态</th>
                   </tr>
                 </thead>
@@ -191,16 +264,17 @@
                         @change="onSystemCheckChange(row.id, $event.target.checked)"
                       />
                     </td>
-                    <td>{{ row.term }}</td>
-                    <td class="def">{{ row.definition }}</td>
-                    <td>{{ (row.aliases || []).join('、') }}</td>
-                    <td>
+                    <td class="cell-term">{{ row.term }}</td>
+                    <td class="cell-alias">{{ (row.aliases || []).join('、') }}</td>
+                    <td class="def cell-def">{{ row.definition }}</td>
+                    <td class="cell-status">
                       <span v-if="isSystemImported(row.id)" class="badge-in">已在我的术语</span>
                       <span v-else class="muted">可选</span>
                     </td>
                   </tr>
                 </tbody>
               </table>
+              </div>
             </div>
           </section>
 
@@ -268,7 +342,11 @@ export default {
         error: ''
       },
       selectedSystemIds: [],
-      importing: false
+      importing: false,
+      togglingTermId: null,
+      /** 术语组是否展开：key 为 groupId，未出现或为 false 表示默认折叠 */
+      expandedMineGroups: {},
+      expandedSystemGroups: {}
     };
   },
   computed: {
@@ -291,6 +369,24 @@ export default {
     this.refreshAll();
   },
   methods: {
+    mineGroupOpen(groupId) {
+      return this.expandedMineGroups[groupId] === true;
+    },
+    toggleMineGroup(groupId) {
+      this.expandedMineGroups = {
+        ...this.expandedMineGroups,
+        [groupId]: !this.mineGroupOpen(groupId)
+      };
+    },
+    systemGroupOpen(groupId) {
+      return this.expandedSystemGroups[groupId] === true;
+    },
+    toggleSystemGroup(groupId) {
+      this.expandedSystemGroups = {
+        ...this.expandedSystemGroups,
+        [groupId]: !this.systemGroupOpen(groupId)
+      };
+    },
     getMineFlat() {
       const m = this.mineGrouped || {};
       const out = [...(m.ungrouped || [])];
@@ -483,6 +579,29 @@ export default {
       } catch (e) {
         alert('删除失败');
       }
+    },
+    async toggleRowEnabled(row) {
+      if (this.togglingTermId !== null) return;
+      const next = row.enabled === 1 ? 0 : 1;
+      this.togglingTermId = row.id;
+      try {
+        const res = await terminologyApi.updateMyTerm(row.id, {
+          term: row.term,
+          definition: row.definition,
+          aliases: row.aliases || [],
+          sortWeight: row.sortWeight,
+          enabled: next
+        });
+        if (res.data.code === CODES.SUCCESS) {
+          row.enabled = next;
+        } else {
+          alert(res.data.message || '更新失败');
+        }
+      } catch (e) {
+        alert('网络错误');
+      } finally {
+        this.togglingTermId = null;
+      }
     }
   }
 };
@@ -563,6 +682,59 @@ export default {
   margin-bottom: 22px;
 }
 
+.group-title-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--wc-border, #e2e8f0);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--wc-primary, #6366f1) 6%, transparent);
+  cursor: pointer;
+  text-align: left;
+  box-sizing: border-box;
+  font: inherit;
+}
+
+.group-title-btn:hover {
+  background: color-mix(in srgb, var(--wc-primary, #6366f1) 11%, transparent);
+}
+
+.group-chev {
+  display: inline-block;
+  flex-shrink: 0;
+  width: 1em;
+  font-size: 10px;
+  line-height: 1;
+  color: var(--wc-text-secondary, #64748b);
+  transition: transform 0.16s ease;
+  transform: rotate(0deg);
+}
+
+.group-chev.open {
+  transform: rotate(90deg);
+}
+
+.group-title-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--wc-text, #0f172a);
+}
+
+.group-meta {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--wc-text-secondary, #64748b);
+}
+
+.group-body {
+  margin-top: 10px;
+}
+
 .group-title {
   margin: 0 0 10px;
   font-size: 15px;
@@ -574,7 +746,7 @@ export default {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 10px;
   margin-bottom: 10px;
 }
@@ -642,6 +814,49 @@ export default {
   font-size: 13px;
 }
 
+.term-table-mine,
+.term-table-system {
+  table-layout: fixed;
+}
+
+.term-table-mine col.col-term {
+  width: 11%;
+}
+.term-table-mine col.col-alias {
+  width: 17%;
+}
+.term-table-mine col.col-def {
+  width: 30%;
+}
+.term-table-mine col.col-weight {
+  width: 7%;
+}
+.term-table-mine col.col-enabled {
+  width: 84px;
+}
+.term-table-mine col.col-src {
+  width: 84px;
+}
+.term-table-mine col.col-actions {
+  width: 92px;
+}
+
+.term-table-system col.col-chk {
+  width: 52px;
+}
+.term-table-system col.col-term-sys {
+  width: 14%;
+}
+.term-table-system col.col-alias-sys {
+  width: 18%;
+}
+.term-table-system col.col-def-sys {
+  width: 38%;
+}
+.term-table-system col.col-status-sys {
+  width: 14%;
+}
+
 .term-table th,
 .term-table td {
   border-bottom: 1px solid var(--wc-border, #e2e8f0);
@@ -653,16 +868,121 @@ export default {
 .term-table th {
   font-weight: 600;
   color: var(--wc-text-secondary, #64748b);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.def {
-  max-width: 280px;
+/* 所有术语表：表头垂直居中 */
+.term-table-mine thead th,
+.term-table-system thead th {
+  vertical-align: middle;
+}
+
+/* 我的术语：权重 / 启用 / 来源 / 操作列表头居中 */
+.term-table-mine thead th:nth-child(4),
+.term-table-mine thead th:nth-child(5),
+.term-table-mine thead th:nth-child(6),
+.term-table-mine thead th:nth-child(7) {
+  text-align: center;
+}
+
+/* 我的术语：正文行垂直居中（与多行释义同高时对齐一致） */
+.term-table-mine tbody td {
+  vertical-align: middle;
+}
+
+.term-table-mine tbody td.cell-weight,
+.term-table-mine tbody td.cell-enabled,
+.term-table-mine tbody td.cell-src,
+.term-table-mine tbody td.actions {
+  text-align: center;
+}
+
+.cell-term,
+.cell-weight {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.term-table-mine tbody td.cell-src {
+  white-space: normal;
+}
+
+.cell-alias {
+  font-weight: 600;
+  color: #6d28d9;
+  background: linear-gradient(180deg, rgba(124, 58, 237, 0.14), rgba(124, 58, 237, 0.05));
+  border: 1px solid rgba(109, 40, 217, 0.35);
+  border-radius: 0;
   white-space: pre-wrap;
   word-break: break-word;
 }
 
+.cell-enabled {
+  text-align: center;
+}
+
+.enabled-toggle {
+  display: inline-block;
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid #e2e8f0;
+  background: #f1f5f9;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.25;
+  color: #64748b;
+  min-width: 56px;
+  vertical-align: middle;
+}
+
+.enabled-toggle.is-on {
+  background: #ecfdf5;
+  border-color: #6ee7b7;
+  color: #047857;
+}
+
+.enabled-toggle:not(.is-on) {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #b91c1c;
+}
+
+.enabled-toggle:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.def {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.term-table-mine .cell-def,
+.term-table-system .cell-def {
+  max-width: none;
+  max-height: 5.5em;
+  overflow: auto;
+}
+
 .actions {
   white-space: nowrap;
+  text-align: center;
+}
+
+/* 系统默认表：正文垂直居中；选择列与状态列水平居中 */
+.term-table-system tbody td {
+  vertical-align: middle;
+}
+
+.term-table-system thead th.col-chk,
+.term-table-system thead th:nth-child(5),
+.term-table-system tbody td.col-chk,
+.term-table-system tbody td.cell-status {
+  text-align: center;
 }
 
 .linkish {
