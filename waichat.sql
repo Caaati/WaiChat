@@ -77,6 +77,7 @@ CREATE TABLE `terminology_alias`  (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `terminology_id` int(11) NOT NULL,
   `alias` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
+  `target_lang` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '翻译目标语言代码，空=任意',
   PRIMARY KEY (`id`) USING BTREE,
   INDEX `idx_terminology_id`(`terminology_id`) USING BTREE
 ) ENGINE = InnoDB AUTO_INCREMENT = 19 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci ROW_FORMAT = Dynamic;

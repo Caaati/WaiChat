@@ -9,7 +9,7 @@ import java.util.List;
 public class TerminologySaveDTO {
     private String term;
     private String definition;
-    private List<String> aliases = new ArrayList<>();
+    private List<TerminologyAliasItemDTO> aliases = new ArrayList<>();
     private Integer sortWeight;
     /** 默认 1 */
     private Integer enabled;

@@ -22,14 +22,15 @@ public class TerminologyMatchService {
     private TerminologyCacheService terminologyCacheService;
 
     /**
-     * 命中「我的术语」转为 DashScope translation_options.terms（source=正文中的标准名或别名，target=别名表中的推荐用语，不用 definition）。
-     * <p>支持多条：多个词条、同一词条多个别名/标准名在正文中同时命中时各输出一对；去重键为词条 id + 原文片段，避免不同词条 source 相同时被误合并。
+     * 命中「我的术语」转为 DashScope translation_options.terms（source=正文中的标准名或别名，target=推荐用语）。
+     * <p>别名表可按 {@code translateTargetLang} 筛选：优先使用目标语言匹配的行，其次使用未限定目标语言的行。
      */
-    public List<TerminologyTranslationPair> buildTranslationTermPairs(Integer userId, String text) {
+    public List<TerminologyTranslationPair> buildTranslationTermPairs(Integer userId, String text, String translateTargetLang) {
         if (text == null || text.isBlank()) {
             return List.of();
         }
         String haystack = text.toLowerCase(Locale.ROOT);
+        String targetLangNorm = translateTargetLang == null ? "" : translateTargetLang.trim();
         List<MatchCand> cands = sortedCandidates(userId, true);
         Set<String> seenTermIdAndSource = new LinkedHashSet<>();
         List<TerminologyTranslationPair> out = new ArrayList<>();
@@ -50,7 +51,7 @@ public class TerminologyMatchService {
                 continue;
             }
             List<String> aliasOnly = aliasesOnly(c.phrases(), c.displayTerm);
-            String target = resolveTranslationTargetFromAliases(ph, c.displayTerm, aliasOnly);
+            String target = resolveTranslationTarget(ph, c.displayTerm, c.aliasRows, aliasOnly, targetLangNorm);
             if (target.isEmpty() || ph.equalsIgnoreCase(target)) {
                 continue;
             }
@@ -97,23 +98,78 @@ public class TerminologyMatchService {
     }
 
     /**
-     * target 仅来自别名表：优先取与 source 不同的第一条别名；若无（例如原文已是唯一别名），则用标准术语 term（仍非 definition）。
+     * target 来自别名行（按目标语言优先）；若无结构化行则退回「与 source 不同的第一条别名」逻辑。
      */
-    private static String resolveTranslationTargetFromAliases(String sourcePhrase, String displayTerm, List<String> aliasOnly) {
+    private static String resolveTranslationTarget(String sourcePhrase, String displayTerm,
+                                                   List<TerminologyCacheDTO.AliasCacheRow> aliasRows,
+                                                   List<String> aliasOnlyFallback,
+                                                   String requestTargetLang) {
         String src = sourcePhrase == null ? "" : sourcePhrase.trim();
-        if (aliasOnly == null || aliasOnly.isEmpty()) {
-            return "";
+        if (aliasRows != null && !aliasRows.isEmpty()) {
+            List<TerminologyCacheDTO.AliasCacheRow> ordered = orderAliasRowsForTranslate(aliasRows, requestTargetLang);
+            for (TerminologyCacheDTO.AliasCacheRow row : ordered) {
+                if (row == null || row.getAlias() == null || row.getAlias().isBlank()) {
+                    continue;
+                }
+                String at = row.getAlias().trim();
+                if (!at.equalsIgnoreCase(src)) {
+                    return normalizeAliasText(at);
+                }
+            }
         }
-        for (String a : aliasOnly) {
+        if (aliasOnlyFallback == null || aliasOnlyFallback.isEmpty()) {
+            return fallbackDisplayTerm(displayTerm, src);
+        }
+        for (String a : aliasOnlyFallback) {
             if (!a.equalsIgnoreCase(src)) {
                 return normalizeAliasText(a);
             }
         }
+        return fallbackDisplayTerm(displayTerm, src);
+    }
+
+    private static String fallbackDisplayTerm(String displayTerm, String src) {
         String dt = displayTerm == null ? "" : displayTerm.trim();
         if (!dt.isEmpty() && !dt.equalsIgnoreCase(src)) {
             return normalizeAliasText(dt);
         }
         return "";
+    }
+
+    /**
+     * 顺序：先当前请求目标语言精确匹配的行（库表 id 序），再「未限定目标语言」的行，最后其它语言行（兼容旧数据）。
+     */
+    private static List<TerminologyCacheDTO.AliasCacheRow> orderAliasRowsForTranslate(
+            List<TerminologyCacheDTO.AliasCacheRow> all, String requestLang) {
+        if (all == null || all.isEmpty()) {
+            return List.of();
+        }
+        String lang = requestLang == null ? "" : requestLang.trim();
+        List<TerminologyCacheDTO.AliasCacheRow> exact = new ArrayList<>();
+        List<TerminologyCacheDTO.AliasCacheRow> wild = new ArrayList<>();
+        List<TerminologyCacheDTO.AliasCacheRow> other = new ArrayList<>();
+        for (TerminologyCacheDTO.AliasCacheRow r : all) {
+            if (r == null || r.getAlias() == null || r.getAlias().isBlank()) {
+                continue;
+            }
+            String tl = r.getTargetLang() == null ? "" : r.getTargetLang().trim();
+            if (tl.isEmpty()) {
+                wild.add(r);
+            } else if (!lang.isEmpty() && tl.equalsIgnoreCase(lang)) {
+                exact.add(r);
+            } else {
+                other.add(r);
+            }
+        }
+        List<TerminologyCacheDTO.AliasCacheRow> out = new ArrayList<>(exact);
+        out.addAll(wild);
+        if (!out.isEmpty()) {
+            return out;
+        }
+        if (!other.isEmpty()) {
+            return other;
+        }
+        return new ArrayList<>(all);
     }
 
     private static String normalizeAliasText(String raw) {
@@ -177,8 +233,11 @@ public class TerminologyMatchService {
         String displayTerm = dto.getTerm() != null ? dto.getTerm() : distinct.get(0);
         int sw = dto.getSortWeight() != null ? dto.getSortWeight().intValue() : 0;
         List<String> phraseSnapshot = new ArrayList<>(distinct);
+        List<TerminologyCacheDTO.AliasCacheRow> aliasRows = dto.getAliasRows() != null
+                ? new ArrayList<>(dto.getAliasRows())
+                : List.of();
         for (String phrase : distinct) {
-            out.add(new MatchCand(termId, phrase, displayTerm, dto.getDefinition(), sw, systemRank, phraseSnapshot));
+            out.add(new MatchCand(termId, phrase, displayTerm, dto.getDefinition(), sw, systemRank, phraseSnapshot, aliasRows));
         }
     }
 
@@ -207,6 +266,7 @@ public class TerminologyMatchService {
     }
 
     private record MatchCand(int termId, String phrase, String displayTerm, String definition, int sortWeight,
-                             int systemRank, List<String> phrases) {
+                             int systemRank, List<String> phrases,
+                             List<TerminologyCacheDTO.AliasCacheRow> aliasRows) {
     }
 }

@@ -34,9 +34,9 @@ ON DUPLICATE KEY UPDATE
   `update_time` = VALUES(`update_time`);
 
 -- 别名（重复执行可能重复插入，无唯一约束时请只执行一次或先按 terminology_id 清理）
-INSERT INTO `terminology_alias` (`terminology_id`, `alias`) VALUES
-(5, '客户尽职调查'),
-(7, '单品条码');
+INSERT INTO `terminology_alias` (`terminology_id`, `alias`, `target_lang`) VALUES
+(5, '客户尽职调查', NULL),
+(7, '单品条码', NULL);
 
 -- 若库中已有更大 id，请改为 MAX(id)+1 或删除下列两行
 -- ALTER TABLE `terminology` AUTO_INCREMENT = 13;

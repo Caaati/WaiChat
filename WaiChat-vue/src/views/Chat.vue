@@ -633,6 +633,17 @@ export default {
     },
   },
 
+  watch: {
+    targetLang(val) {
+      if (!val) return
+      try {
+        localStorage.setItem('waichatTargetLang', val)
+      } catch (_) {
+        /* ignore */
+      }
+    },
+  },
+
   methods: {
     // 语音转文字
     async convertVoiceToText(msg) {
@@ -776,8 +787,20 @@ export default {
         .then((res) => {
           if (res.data.code === CODES.SUCCESS) {
             this.languages = res.data.data
-            if (this.languages.length > 0 && !this.targetLang) {
-              this.targetLang = this.languages[0].code
+            let next = this.targetLang
+            try {
+              const stored = localStorage.getItem('waichatTargetLang')
+              if (stored && this.languages.some((l) => l.code === stored)) {
+                next = stored
+              }
+            } catch (_) {
+              /* ignore */
+            }
+            if (this.languages.length > 0) {
+              if (!next || !this.languages.some((l) => l.code === next)) {
+                next = this.languages[0].code
+              }
+              this.targetLang = next
             }
           }
         })

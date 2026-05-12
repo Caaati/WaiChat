@@ -5,7 +5,7 @@
         <button type="button" class="wc-btn wc-btn-ghost back-btn" @click="goChat">返回聊天</button>
         <h1>术语库</h1>
         <p class="sub">
-          自定义术语会在润色、翻译、智能回复、总结与分析等 AI 功能中按关键词匹配。系统默认支持「术语组」（如医疗行业），可勾选组内词条或一键导入整组；「我的术语」按组展示。
+          自定义术语会在润色、翻译、智能回复、总结与分析等 AI 功能中按关键词匹配。别名可指定「目标语言」：翻译为该语言时优先采用对应别名作为术语对；不指定则对任意目标语言生效。系统默认支持「术语组」（如医疗行业），可勾选组内词条或一键导入整组；「我的术语」按组展示。
         </p>
       </header>
 
@@ -57,7 +57,7 @@
                 <tbody>
                   <tr v-for="row in g.entries" :key="row.id">
                     <td class="cell-term">{{ row.term }}</td>
-                    <td class="cell-alias">{{ (row.aliases || []).join('、') }}</td>
+                    <td class="cell-alias">{{ formatAliasColumn(row) }}</td>
                     <td class="def cell-def">{{ row.definition }}</td>
                     <td class="cell-weight">{{ row.sortWeight }}</td>
                     <td class="cell-enabled">
@@ -113,7 +113,7 @@
                 <tbody>
                   <tr v-for="row in mineGrouped.ungrouped" :key="row.id">
                     <td class="cell-term">{{ row.term }}</td>
-                    <td class="cell-alias">{{ (row.aliases || []).join('、') }}</td>
+                    <td class="cell-alias">{{ formatAliasColumn(row) }}</td>
                     <td class="def cell-def">{{ row.definition }}</td>
                     <td class="cell-weight">{{ row.sortWeight }}</td>
                     <td class="cell-enabled">
@@ -194,7 +194,7 @@
                       />
                     </td>
                     <td class="cell-term">{{ row.term }}</td>
-                    <td class="cell-alias">{{ (row.aliases || []).join('、') }}</td>
+                    <td class="cell-alias">{{ formatAliasColumn(row) }}</td>
                     <td class="def cell-def">{{ row.definition }}</td>
                     <td class="cell-status">
                       <span v-if="isSystemImported(row.id)" class="badge-in">已在我的术语</span>
@@ -265,7 +265,7 @@
                       />
                     </td>
                     <td class="cell-term">{{ row.term }}</td>
-                    <td class="cell-alias">{{ (row.aliases || []).join('、') }}</td>
+                    <td class="cell-alias">{{ formatAliasColumn(row) }}</td>
                     <td class="def cell-def">{{ row.definition }}</td>
                     <td class="cell-status">
                       <span v-if="isSystemImported(row.id)" class="badge-in">已在我的术语</span>
@@ -289,8 +289,21 @@
           <input v-model="editor.term" class="wc-input" maxlength="128" />
           <label>释义</label>
           <textarea v-model="editor.definition" class="wc-input area" rows="4"></textarea>
-          <label>别名（每行一个，可选）</label>
-          <textarea v-model="editor.aliasesText" class="wc-input area" rows="3" placeholder="缩写或常用说法，每行一条"></textarea>
+          <label>别名（可选）</label>
+          <p class="field-hint">每条别名可指定目标语言；翻译为该语言时优先使用该别名。点击「添加别名」时，默认选中聊天页当前翻译语言（与「任意语言」相对）。</p>
+          <div class="alias-editor">
+            <div v-for="(ar, idx) in editor.aliasRows" :key="'ar' + idx" class="alias-editor-row">
+              <input v-model="ar.alias" class="wc-input alias-text" maxlength="128" placeholder="别名文本" type="text" />
+              <select v-model="ar.targetLang" class="wc-input alias-lang" title="翻译目标语言">
+                <option value="">任意语言</option>
+                <option v-for="lang in languages" :key="lang.code" :value="lang.code">
+                  {{ lang.flag }} {{ lang.name }}
+                </option>
+              </select>
+              <button type="button" class="wc-btn wc-btn-ghost btn-sm" @click="removeAliasRow(idx)">删除</button>
+            </div>
+            <button type="button" class="wc-btn wc-btn-ghost add-alias-btn" @click="addAliasRow">添加别名</button>
+          </div>
           <div class="row2">
             <div>
               <label>排序权重</label>
@@ -318,6 +331,7 @@
 </template>
 
 <script>
+import axios from 'axios';
 import { CODES } from '@/constants/codes.js';
 import * as terminologyApi from '@/api/terminology.js';
 
@@ -328,6 +342,7 @@ export default {
       tab: 'mine',
       mineGrouped: { ungrouped: [], groups: [] },
       systemTree: { ungrouped: [], groups: [] },
+      languages: [],
       loading: false,
       loadError: '',
       saving: false,
@@ -336,7 +351,7 @@ export default {
         id: null,
         term: '',
         definition: '',
-        aliasesText: '',
+        aliasRows: [],
         sortWeight: 0,
         enabled: 1,
         error: ''
@@ -367,8 +382,72 @@ export default {
   },
   mounted() {
     this.refreshAll();
+    this.loadLanguages();
   },
   methods: {
+    async loadLanguages() {
+      try {
+        const res = await axios.get('/api/ai/languages');
+        if (res.data.code === CODES.SUCCESS && Array.isArray(res.data.data)) {
+          this.languages = res.data.data;
+        }
+      } catch (_) {
+        /* 未登录或网络错误时术语页仍可编辑，仅无语言下拉 */
+      }
+    },
+    storedChatTargetLang() {
+      try {
+        return localStorage.getItem('waichatTargetLang') || '';
+      } catch (_) {
+        return '';
+      }
+    },
+    defaultAliasTargetLang() {
+      const stored = this.storedChatTargetLang();
+      if (stored && this.languages.some((l) => l.code === stored)) {
+        return stored;
+      }
+      return this.languages[0]?.code || '';
+    },
+    addAliasRow() {
+      this.editor.aliasRows.push({
+        alias: '',
+        targetLang: this.defaultAliasTargetLang()
+      });
+    },
+    removeAliasRow(idx) {
+      this.editor.aliasRows.splice(idx, 1);
+    },
+    formatOneAlias(a) {
+      if (a == null) return '';
+      if (typeof a === 'string') {
+        const s = a.trim();
+        return s || '';
+      }
+      const name = (a.alias || '').trim();
+      if (!name) return '';
+      const lang = (a.targetLang || '').trim();
+      return lang ? `${name}（${lang}）` : name;
+    },
+    formatAliasColumn(row) {
+      const list = row.aliases || [];
+      if (!list.length) return '—';
+      return list.map((x) => this.formatOneAlias(x)).filter(Boolean).join('；') || '—';
+    },
+    normalizeAliasesForApi(aliases) {
+      if (!aliases || !aliases.length) return [];
+      return aliases
+        .map((a) => {
+          if (typeof a === 'string') {
+            const alias = a.trim();
+            return alias ? { alias, targetLang: null } : null;
+          }
+          const alias = (a.alias || '').trim();
+          const tl = (a.targetLang || '').trim();
+          return alias ? { alias, targetLang: tl || null } : null;
+        })
+        .filter(Boolean);
+    },
     mineGroupOpen(groupId) {
       return this.expandedMineGroups[groupId] === true;
     },
@@ -506,19 +585,24 @@ export default {
         id: null,
         term: '',
         definition: '',
-        aliasesText: '',
+        aliasRows: [],
         sortWeight: 0,
         enabled: 1,
         error: ''
       };
     },
     openEdit(row) {
+      const raw = (row.aliases || []).map((a) =>
+        typeof a === 'string'
+          ? { alias: a, targetLang: '' }
+          : { alias: a.alias || '', targetLang: a.targetLang || '' }
+      );
       this.editor = {
         open: true,
         id: row.id,
         term: row.term,
         definition: row.definition,
-        aliasesText: (row.aliases || []).join('\n'),
+        aliasRows: raw.length ? raw : [],
         sortWeight: row.sortWeight != null ? row.sortWeight : 0,
         enabled: row.enabled != null ? row.enabled : 1,
         error: ''
@@ -526,13 +610,6 @@ export default {
     },
     closeEditor() {
       this.editor.open = false;
-    },
-    aliasesFromText(text) {
-      if (!text || !text.trim()) return [];
-      return text
-        .split(/\r?\n/)
-        .map((s) => s.trim())
-        .filter(Boolean);
     },
     async saveEditor() {
       this.editor.error = '';
@@ -543,7 +620,7 @@ export default {
       const payload = {
         term: this.editor.term.trim(),
         definition: this.editor.definition.trim(),
-        aliases: this.aliasesFromText(this.editor.aliasesText),
+        aliases: this.normalizeAliasesForApi(this.editor.aliasRows),
         sortWeight: this.editor.sortWeight,
         enabled: this.editor.enabled
       };
@@ -588,7 +665,7 @@ export default {
         const res = await terminologyApi.updateMyTerm(row.id, {
           term: row.term,
           definition: row.definition,
-          aliases: row.aliases || [],
+          aliases: this.normalizeAliasesForApi(row.aliases),
           sortWeight: row.sortWeight,
           enabled: next
         });
@@ -1021,7 +1098,7 @@ export default {
 }
 
 .editor {
-  width: min(520px, 100%);
+  width: min(560px, 100%);
   padding: 20px 22px;
   display: flex;
   flex-direction: column;
@@ -1042,6 +1119,40 @@ export default {
 .area {
   resize: vertical;
   min-height: 72px;
+}
+
+.field-hint {
+  margin: 0 0 8px;
+  font-size: 12px;
+  color: var(--wc-text-secondary, #64748b);
+  line-height: 1.45;
+}
+
+.alias-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.alias-editor-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.alias-editor-row .alias-text {
+  flex: 1 1 140px;
+  min-width: 0;
+}
+
+.alias-editor-row .alias-lang {
+  flex: 0 1 200px;
+  min-width: 140px;
+}
+
+.add-alias-btn {
+  align-self: flex-start;
 }
 
 .row2 {

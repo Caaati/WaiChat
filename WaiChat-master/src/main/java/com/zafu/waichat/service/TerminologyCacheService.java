@@ -113,12 +113,10 @@ public class TerminologyCacheService {
         }
         List<Integer> ids = rows.stream().map(Terminology::getId).toList();
         QueryWrapper<TerminologyAlias> aw = new QueryWrapper<>();
-        aw.in("terminology_id", ids);
+        aw.in("terminology_id", ids).orderByAsc("id");
         List<TerminologyAlias> aliases = terminologyAliasMapper.selectList(aw);
-        Map<Integer, List<String>> aliasByTerm = aliases.stream()
-                .collect(Collectors.groupingBy(
-                        TerminologyAlias::getTerminologyId,
-                        Collectors.mapping(TerminologyAlias::getAlias, Collectors.toList())));
+        Map<Integer, List<TerminologyAlias>> aliasRowsByTerm = aliases.stream()
+                .collect(Collectors.groupingBy(TerminologyAlias::getTerminologyId, LinkedHashMap::new, Collectors.toList()));
         List<TerminologyCacheDTO> out = new ArrayList<>();
         for (Terminology t : rows) {
             TerminologyCacheDTO dto = new TerminologyCacheDTO();
@@ -127,14 +125,24 @@ public class TerminologyCacheService {
             dto.setTerm(t.getTerm());
             dto.setDefinition(t.getDefinition());
             dto.setSortWeight(t.getSortWeight() != null ? t.getSortWeight() : 0);
+            List<TerminologyAlias> termAliases = aliasRowsByTerm.getOrDefault(t.getId(), Collections.emptyList());
+            List<TerminologyCacheDTO.AliasCacheRow> aliasRows = new ArrayList<>();
+            for (TerminologyAlias al : termAliases) {
+                if (al.getAlias() == null || al.getAlias().isBlank()) {
+                    continue;
+                }
+                String tl = al.getTargetLang();
+                aliasRows.add(new TerminologyCacheDTO.AliasCacheRow(
+                        al.getAlias().trim(),
+                        tl != null && !tl.isBlank() ? tl.trim() : null));
+            }
+            dto.setAliasRows(aliasRows);
             LinkedHashSet<String> phrases = new LinkedHashSet<>();
             if (t.getTerm() != null && !t.getTerm().isBlank()) {
                 phrases.add(t.getTerm().trim());
             }
-            for (String a : aliasByTerm.getOrDefault(t.getId(), Collections.emptyList())) {
-                if (a != null && !a.isBlank()) {
-                    phrases.add(a.trim());
-                }
+            for (TerminologyCacheDTO.AliasCacheRow row : aliasRows) {
+                phrases.add(row.getAlias());
             }
             dto.setPhrases(new ArrayList<>(phrases));
             out.add(dto);

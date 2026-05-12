@@ -91,7 +91,7 @@ public class AIController {
                 return Result.error("目标语言不能为空");
             }
             Integer uid = authUserService.getCurrentUserIdOrNull();
-            List<TerminologyTranslationPair> pairs = terminologyMatchService.buildTranslationTermPairs(uid, text);
+            List<TerminologyTranslationPair> pairs = terminologyMatchService.buildTranslationTermPairs(uid, text, target);
             List<TranslationOptions.Term> terms = new ArrayList<>();
             for (TerminologyTranslationPair p : pairs) {
                 if (p.getSource() == null || p.getTarget() == null) {

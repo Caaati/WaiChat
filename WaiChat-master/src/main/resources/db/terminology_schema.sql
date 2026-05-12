@@ -38,6 +38,7 @@ CREATE TABLE `terminology_alias` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `terminology_id` int(11) NOT NULL,
   `alias` varchar(128) NOT NULL,
+  `target_lang` varchar(32) DEFAULT NULL COMMENT '翻译目标语言代码，空=任意',
   PRIMARY KEY (`id`),
   KEY `idx_terminology_id` (`terminology_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -53,5 +54,5 @@ VALUES
 (3, NULL, 1, 'MRI', '磁共振成像（Magnetic Resonance Imaging）。', 1, 40, NOW(), NOW()),
 (4, NULL, 1, 'ICU', '重症监护病房（Intensive Care Unit）。', 1, 30, NOW(), NOW());
 
-INSERT INTO `terminology_alias` (`terminology_id`, `alias`) VALUES (1, '外聊');
-INSERT INTO `terminology_alias` (`terminology_id`, `alias`) VALUES (2, '电子计算机断层扫描');
+INSERT INTO `terminology_alias` (`terminology_id`, `alias`, `target_lang`) VALUES (1, '外聊', NULL);
+INSERT INTO `terminology_alias` (`terminology_id`, `alias`, `target_lang`) VALUES (2, '电子计算机断层扫描', NULL);

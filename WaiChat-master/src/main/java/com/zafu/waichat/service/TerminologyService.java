@@ -5,11 +5,13 @@ import com.zafu.waichat.mapper.TerminologyAliasMapper;
 import com.zafu.waichat.mapper.TerminologyGroupMapper;
 import com.zafu.waichat.mapper.TerminologyMapper;
 import com.zafu.waichat.pojo.dto.TerminologyImportSystemDTO;
+import com.zafu.waichat.pojo.dto.TerminologyAliasItemDTO;
 import com.zafu.waichat.pojo.dto.TerminologySaveDTO;
 import com.zafu.waichat.pojo.entity.Terminology;
 import com.zafu.waichat.pojo.entity.TerminologyAlias;
 import com.zafu.waichat.pojo.entity.TerminologyGroup;
 import com.zafu.waichat.pojo.vo.TerminologyEntryVO;
+import com.zafu.waichat.pojo.vo.TerminologyAliasVO;
 import com.zafu.waichat.pojo.vo.TerminologyGroupSectionVO;
 import com.zafu.waichat.pojo.vo.TerminologyMineGroupedVO;
 import com.zafu.waichat.pojo.vo.TerminologySystemTreeVO;
@@ -128,23 +130,21 @@ public class TerminologyService {
         }
         List<Integer> ids = rows.stream().map(Terminology::getId).toList();
         QueryWrapper<TerminologyAlias> aw = new QueryWrapper<>();
-        aw.in("terminology_id", ids);
-        List<TerminologyAlias> aliases = terminologyAliasMapper.selectList(aw);
-        Map<Integer, List<String>> byTerm = aliases.stream()
-                .collect(Collectors.groupingBy(
-                        TerminologyAlias::getTerminologyId,
-                        Collectors.mapping(TerminologyAlias::getAlias, Collectors.toList())));
+        aw.in("terminology_id", ids).orderByAsc("id");
+        List<TerminologyAlias> aliasEntities = terminologyAliasMapper.selectList(aw);
+        Map<Integer, List<TerminologyAlias>> byTermId = aliasEntities.stream()
+                .collect(Collectors.groupingBy(TerminologyAlias::getTerminologyId, LinkedHashMap::new, Collectors.toList()));
         Set<Integer> gids = rows.stream().map(Terminology::getGroupId).filter(Objects::nonNull).collect(Collectors.toSet());
         Map<Integer, String> gmap = loadGroupNameMap(gids);
         List<TerminologyEntryVO> vos = new ArrayList<>();
         for (Terminology t : rows) {
             String gn = t.getGroupId() != null ? gmap.getOrDefault(t.getGroupId(), "（未知组）") : null;
-            vos.add(toVo(t, byTerm.getOrDefault(t.getId(), List.of()), gn));
+            vos.add(toVo(t, byTermId.getOrDefault(t.getId(), List.of()), gn));
         }
         return vos;
     }
 
-    private TerminologyEntryVO toVo(Terminology t, List<String> aliases, String groupName) {
+    private TerminologyEntryVO toVo(Terminology t, List<TerminologyAlias> aliasEntities, String groupName) {
         TerminologyEntryVO vo = new TerminologyEntryVO();
         vo.setId(t.getId());
         vo.setOwnerUserId(t.getOwnerUserId());
@@ -155,7 +155,14 @@ public class TerminologyService {
         vo.setSortWeight(t.getSortWeight());
         vo.setEnabled(t.getEnabled());
         vo.setClonedFromSystemId(t.getClonedFromSystemId());
-        vo.setAliases(new ArrayList<>(aliases));
+        List<TerminologyAliasVO> aliasVos = new ArrayList<>();
+        for (TerminologyAlias a : aliasEntities) {
+            TerminologyAliasVO av = new TerminologyAliasVO();
+            av.setAlias(a.getAlias());
+            av.setTargetLang(a.getTargetLang());
+            aliasVos.add(av);
+        }
+        vo.setAliases(aliasVos);
         return vo;
     }
 
@@ -278,11 +285,12 @@ public class TerminologyService {
             t.setUpdateTime(now);
             terminologyMapper.insert(t);
             List<TerminologyAlias> srcAliases = terminologyAliasMapper.selectList(
-                    new QueryWrapper<TerminologyAlias>().eq("terminology_id", sid));
+                    new QueryWrapper<TerminologyAlias>().eq("terminology_id", sid).orderByAsc("id"));
             for (TerminologyAlias sa : srcAliases) {
                 TerminologyAlias na = new TerminologyAlias();
                 na.setTerminologyId(t.getId());
                 na.setAlias(sa.getAlias());
+                na.setTargetLang(sa.getTargetLang());
                 terminologyAliasMapper.insert(na);
             }
             alreadySourceIds.add(sid);
@@ -295,17 +303,19 @@ public class TerminologyService {
         return created;
     }
 
-    private void saveAliases(Integer terminologyId, List<String> aliases) {
+    private void saveAliases(Integer terminologyId, List<TerminologyAliasItemDTO> aliases) {
         if (aliases == null) {
             return;
         }
-        for (String raw : aliases) {
-            if (raw == null || raw.isBlank()) {
+        for (TerminologyAliasItemDTO item : aliases) {
+            if (item == null || item.getAlias() == null || item.getAlias().isBlank()) {
                 continue;
             }
             TerminologyAlias a = new TerminologyAlias();
             a.setTerminologyId(terminologyId);
-            a.setAlias(raw.trim());
+            a.setAlias(item.getAlias().trim());
+            String tl = item.getTargetLang();
+            a.setTargetLang(tl != null && !tl.isBlank() ? tl.trim() : null);
             terminologyAliasMapper.insert(a);
         }
     }
@@ -316,13 +326,12 @@ public class TerminologyService {
             return null;
         }
         List<TerminologyAlias> list = terminologyAliasMapper.selectList(
-                new QueryWrapper<TerminologyAlias>().eq("terminology_id", id));
-        List<String> als = list.stream().map(TerminologyAlias::getAlias).toList();
+                new QueryWrapper<TerminologyAlias>().eq("terminology_id", id).orderByAsc("id"));
         String groupName = null;
         if (t.getGroupId() != null) {
             TerminologyGroup g = terminologyGroupMapper.selectById(t.getGroupId());
             groupName = g != null && g.getName() != null ? g.getName() : "（未知组）";
         }
-        return toVo(t, als, groupName);
+        return toVo(t, list, groupName);
     }
 }

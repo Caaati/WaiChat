@@ -11,7 +11,7 @@ public class TerminologyEntryVO {
     private Integer ownerUserId;
     private String term;
     private String definition;
-    private List<String> aliases = new ArrayList<>();
+    private List<TerminologyAliasVO> aliases = new ArrayList<>();
     private Integer sortWeight;
     private Integer enabled;
     /** 非空表示该条为从系统词库复制到「我的术语」的副本 */

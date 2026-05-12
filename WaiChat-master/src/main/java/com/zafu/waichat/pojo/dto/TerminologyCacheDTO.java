@@ -4,6 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -21,4 +22,14 @@ public class TerminologyCacheDTO {
     private String definition;
     private Integer sortWeight;
     private List<String> phrases = new ArrayList<>();
+    /** 别名行（含目标语言），顺序与库表 id 一致；用于翻译术语对解析 */
+    private List<AliasCacheRow> aliasRows = new ArrayList<>();
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class AliasCacheRow implements Serializable {
+        private String alias;
+        private String targetLang;
+    }
 }
