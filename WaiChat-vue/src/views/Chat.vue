@@ -765,18 +765,31 @@ export default {
         this.sidebarVisible = false
       }
 
+      const historyReq = {
+        params: { userId: this.userId, targetId: contact.id },
+        timeout: 25000,
+      }
+      const applyHistory = (res) => {
+        if (res.data.code === CODES.SUCCESS) {
+          const historyData = Array.isArray(res.data.data) ? res.data.data : []
+          this.messages = historyData.map((msg) =>
+            mapHistoryMessage(msg, this.userId, contact.id, contact.nickname),
+          )
+          this.scrollToBottom()
+        } else {
+          this.showNotification(res.data.msg || '加载历史失败', 'error')
+        }
+      }
       axios
-        .get('/api/chat/history', {
-          params: { userId: this.userId, targetId: contact.id },
-        })
-        .then((res) => {
-          if (res.data.code === CODES.SUCCESS) {
-            const historyData = Array.isArray(res.data.data) ? res.data.data : []
-            this.messages = historyData.map((msg) =>
-              mapHistoryMessage(msg, this.userId, contact.id, contact.nickname),
-            )
-            this.scrollToBottom()
-          }
+        .get('/api/chat/history', historyReq)
+        .then(applyHistory)
+        .catch((err) => {
+          console.warn('加载历史首次失败', err)
+          this.showNotification('加载历史较慢或中断，正在重试一次…', 'warning')
+          return axios.get('/api/chat/history', historyReq).then(applyHistory).catch((err2) => {
+            console.error('加载历史重试失败', err2)
+            this.showNotification('加载历史失败，请检查网络或稍后重试', 'error')
+          })
         })
     },
 
