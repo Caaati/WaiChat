@@ -2,21 +2,21 @@
   <div class="term-page wc-page">
     <div class="term-inner wc-glass-card">
       <header class="term-head">
-        <button type="button" class="wc-btn wc-btn-ghost back-btn" @click="goChat">返回聊天</button>
-        <h1>术语库</h1>
+        <button type="button" class="wc-btn wc-btn-ghost back-btn" @click="goChat">{{ $t('terminology.backChat') }}</button>
+        <h1>{{ $t('terminology.title') }}</h1>
         <p class="sub">
-          自定义术语会在润色、翻译、智能回复、总结与分析等 AI 功能中按关键词匹配。别名可指定「目标语言」：翻译为该语言时优先采用对应别名作为术语对；不指定则对任意目标语言生效。系统默认支持「术语组」（如医疗行业），可勾选组内词条或一键导入整组；「我的术语」按组展示。
+          {{ $t('terminology.intro') }}
         </p>
       </header>
 
       <div class="tabs">
-        <button type="button" :class="['tab', { active: tab === 'mine' }]" @click="tab = 'mine'">我的术语</button>
-        <button type="button" :class="['tab', { active: tab === 'system' }]" @click="tab = 'system'">系统默认</button>
+        <button type="button" :class="['tab', { active: tab === 'mine' }]" @click="tab = 'mine'">{{ $t('terminology.tabMine') }}</button>
+        <button type="button" :class="['tab', { active: tab === 'system' }]" @click="tab = 'system'">{{ $t('terminology.tabSystem') }}</button>
       </div>
 
       <div v-if="tab === 'mine'" class="panel">
         <div class="toolbar">
-          <button type="button" class="wc-btn wc-btn-primary" @click="openCreate">新增术语</button>
+          <button type="button" class="wc-btn wc-btn-primary" @click="openCreate">{{ $t('terminology.addTerm') }}</button>
         </div>
         <p v-if="loadError" class="err">{{ loadError }}</p>
         <template v-else>
@@ -29,7 +29,7 @@
             >
               <span class="group-chev" :class="{ open: mineGroupOpen(g.groupId) }" aria-hidden="true">▶</span>
               <span class="group-title-text">{{ g.groupName }}</span>
-              <span class="group-meta">{{ (g.entries || []).length }} 条</span>
+              <span class="group-meta">{{ (g.entries || []).length }} {{ $t('terminology.entries') }}</span>
             </button>
             <div v-show="mineGroupOpen(g.groupId)" class="group-body">
               <div class="table-wrap">
@@ -45,12 +45,12 @@
                 </colgroup>
                 <thead>
                   <tr>
-                    <th>术语</th>
-                    <th>别名</th>
-                    <th>释义</th>
-                    <th>权重</th>
-                    <th>启用</th>
-                    <th>来源</th>
+                    <th>{{ $t('terminology.thTerm') }}</th>
+                    <th>{{ $t('terminology.thAlias') }}</th>
+                    <th>{{ $t('terminology.thDef') }}</th>
+                    <th>{{ $t('terminology.thWeight') }}</th>
+                    <th>{{ $t('terminology.thEnabled') }}</th>
+                    <th>{{ $t('terminology.thSource') }}</th>
                     <th></th>
                   </tr>
                 </thead>
@@ -68,16 +68,16 @@
                         :disabled="togglingTermId === row.id"
                         @click="toggleRowEnabled(row)"
                       >
-                        {{ row.enabled === 1 ? '已启用' : '未启用' }}
+                        {{ row.enabled === 1 ? $t('terminology.enabledOn') : $t('terminology.enabledOff') }}
                       </button>
                     </td>
                     <td class="cell-src">
-                      <span v-if="row.clonedFromSystemId" class="badge-sys">系统副本</span>
-                      <span v-else class="badge-own">自填</span>
+                      <span v-if="row.clonedFromSystemId" class="badge-sys">{{ $t('terminology.badgeSysClone') }}</span>
+                      <span v-else class="badge-own">{{ $t('terminology.badgeOwn') }}</span>
                     </td>
                     <td class="actions">
-                      <button type="button" class="linkish" @click="openEdit(row)">编辑</button>
-                      <button type="button" class="linkish danger" @click="remove(row)">删除</button>
+                      <button type="button" class="linkish" @click="openEdit(row)">{{ $t('terminology.edit') }}</button>
+                      <button type="button" class="linkish danger" @click="remove(row)">{{ $t('terminology.delete') }}</button>
                     </td>
                   </tr>
                 </tbody>
@@ -87,7 +87,7 @@
           </section>
 
           <section v-if="mineGrouped.ungrouped && mineGrouped.ungrouped.length" class="group-block">
-            <h3 class="group-title">自定义 / 未分组</h3>
+            <h3 class="group-title">{{ $t('terminology.ungroupedTitle') }}</h3>
             <div class="table-wrap">
               <table class="term-table term-table-mine">
                 <colgroup>
@@ -101,12 +101,12 @@
                 </colgroup>
                 <thead>
                   <tr>
-                    <th>术语</th>
-                    <th>别名</th>
-                    <th>释义</th>
-                    <th>权重</th>
-                    <th>启用</th>
-                    <th>来源</th>
+                    <th>{{ $t('terminology.thTerm') }}</th>
+                    <th>{{ $t('terminology.thAlias') }}</th>
+                    <th>{{ $t('terminology.thDef') }}</th>
+                    <th>{{ $t('terminology.thWeight') }}</th>
+                    <th>{{ $t('terminology.thEnabled') }}</th>
+                    <th>{{ $t('terminology.thSource') }}</th>
                     <th></th>
                   </tr>
                 </thead>
@@ -124,16 +124,16 @@
                         :disabled="togglingTermId === row.id"
                         @click="toggleRowEnabled(row)"
                       >
-                        {{ row.enabled === 1 ? '已启用' : '未启用' }}
+                        {{ row.enabled === 1 ? $t('terminology.enabledOn') : $t('terminology.enabledOff') }}
                       </button>
                     </td>
                     <td class="cell-src">
-                      <span v-if="row.clonedFromSystemId" class="badge-sys">系统副本</span>
-                      <span v-else class="badge-own">自填</span>
+                      <span v-if="row.clonedFromSystemId" class="badge-sys">{{ $t('terminology.badgeSysClone') }}</span>
+                      <span v-else class="badge-own">{{ $t('terminology.badgeOwn') }}</span>
                     </td>
                     <td class="actions">
-                      <button type="button" class="linkish" @click="openEdit(row)">编辑</button>
-                      <button type="button" class="linkish danger" @click="remove(row)">删除</button>
+                      <button type="button" class="linkish" @click="openEdit(row)">{{ $t('terminology.edit') }}</button>
+                      <button type="button" class="linkish danger" @click="remove(row)">{{ $t('terminology.delete') }}</button>
                     </td>
                   </tr>
                 </tbody>
@@ -141,7 +141,7 @@
             </div>
           </section>
 
-          <p v-if="mineTotallyEmpty && !loading" class="empty">暂无术语，可从「系统默认」导入或点击「新增术语」。</p>
+          <p v-if="mineTotallyEmpty && !loading" class="empty">{{ $t('terminology.emptyMine') }}</p>
         </template>
       </div>
 
@@ -153,14 +153,14 @@
             :disabled="importing || selectableImportCount === 0"
             @click="importSelectedToMine"
           >
-            {{ importing ? '处理中…' : `将选中词条加入我的术语（${selectableImportCount}）` }}
+            {{ importing ? $t('terminology.importing') : $t('terminology.importBtn', { n: selectableImportCount }) }}
           </button>
-          <span class="hint">可按组勾选词条，或使用组内「加入本组全部」。已导入的词条不可再选。</span>
+          <span class="hint">{{ $t('terminology.hintSystem') }}</span>
         </div>
         <p v-if="loadError" class="err">{{ loadError }}</p>
         <template v-else>
           <section v-if="systemTree.ungrouped && systemTree.ungrouped.length" class="group-block">
-            <h3 class="group-title">无组词条</h3>
+            <h3 class="group-title">{{ $t('terminology.ungroupedSys') }}</h3>
             <div class="table-wrap">
               <table class="term-table term-table-system">
                 <colgroup>
@@ -172,11 +172,11 @@
                 </colgroup>
                 <thead>
                   <tr>
-                    <th class="col-chk">选择</th>
-                    <th>术语</th>
-                    <th>别名</th>
-                    <th>释义</th>
-                    <th>状态</th>
+                    <th class="col-chk">{{ $t('terminology.thSelect') }}</th>
+                    <th>{{ $t('terminology.thTerm') }}</th>
+                    <th>{{ $t('terminology.thAlias') }}</th>
+                    <th>{{ $t('terminology.thDef') }}</th>
+                    <th>{{ $t('terminology.thStatus') }}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -197,8 +197,8 @@
                     <td class="cell-alias">{{ formatAliasColumn(row) }}</td>
                     <td class="def cell-def">{{ row.definition }}</td>
                     <td class="cell-status">
-                      <span v-if="isSystemImported(row.id)" class="badge-in">已在我的术语</span>
-                      <span v-else class="muted">可选</span>
+                      <span v-if="isSystemImported(row.id)" class="badge-in">{{ $t('terminology.statusImported') }}</span>
+                      <span v-else class="muted">{{ $t('terminology.statusOptional') }}</span>
                     </td>
                   </tr>
                 </tbody>
@@ -215,20 +215,20 @@
             >
               <span class="group-chev" :class="{ open: systemGroupOpen(grp.groupId) }" aria-hidden="true">▶</span>
               <span class="group-title-text">{{ grp.groupName }}</span>
-              <span class="group-meta">{{ (grp.entries || []).length }} 条</span>
+              <span class="group-meta">{{ (grp.entries || []).length }} {{ $t('terminology.entries') }}</span>
             </button>
             <div v-show="systemGroupOpen(grp.groupId)" class="group-body">
               <div class="group-head">
                 <div class="group-actions">
-                  <button type="button" class="wc-btn wc-btn-ghost btn-sm" @click="selectAllInGroup(grp)">全选本组</button>
-                  <button type="button" class="wc-btn wc-btn-ghost btn-sm" @click="clearGroupSelection(grp)">取消本组</button>
+                  <button type="button" class="wc-btn wc-btn-ghost btn-sm" @click="selectAllInGroup(grp)">{{ $t('terminology.selectAll') }}</button>
+                  <button type="button" class="wc-btn wc-btn-ghost btn-sm" @click="clearGroupSelection(grp)">{{ $t('terminology.clearGroup') }}</button>
                   <button
                     type="button"
                     class="wc-btn wc-btn-primary btn-sm"
                     :disabled="importing"
                     @click="importGroupAll(grp.groupId)"
                   >
-                    加入本组全部
+                    {{ $t('terminology.importGroup') }}
                   </button>
                 </div>
               </div>
@@ -243,11 +243,11 @@
                 </colgroup>
                 <thead>
                   <tr>
-                    <th class="col-chk">选择</th>
-                    <th>术语</th>
-                    <th>别名</th>
-                    <th>释义</th>
-                    <th>状态</th>
+                    <th class="col-chk">{{ $t('terminology.thSelect') }}</th>
+                    <th>{{ $t('terminology.thTerm') }}</th>
+                    <th>{{ $t('terminology.thAlias') }}</th>
+                    <th>{{ $t('terminology.thDef') }}</th>
+                    <th>{{ $t('terminology.thStatus') }}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -268,8 +268,8 @@
                     <td class="cell-alias">{{ formatAliasColumn(row) }}</td>
                     <td class="def cell-def">{{ row.definition }}</td>
                     <td class="cell-status">
-                      <span v-if="isSystemImported(row.id)" class="badge-in">已在我的术语</span>
-                      <span v-else class="muted">可选</span>
+                      <span v-if="isSystemImported(row.id)" class="badge-in">{{ $t('terminology.statusImported') }}</span>
+                      <span v-else class="muted">{{ $t('terminology.statusOptional') }}</span>
                     </td>
                   </tr>
                 </tbody>
@@ -278,50 +278,50 @@
             </div>
           </section>
 
-          <p v-if="systemTreeEmpty && !loading" class="empty">暂无系统术语。</p>
+          <p v-if="systemTreeEmpty && !loading" class="empty">{{ $t('terminology.emptySystem') }}</p>
         </template>
       </div>
 
       <div v-if="editor.open" class="editor-overlay" @click.self="closeEditor">
         <div class="editor wc-glass-card" @click.stop>
-          <h3>{{ editor.id ? '编辑术语' : '新增术语' }}</h3>
-          <label>标准术语</label>
+          <h3>{{ editor.id ? $t('terminology.editorEdit') : $t('terminology.editorCreate') }}</h3>
+          <label>{{ $t('terminology.labelTerm') }}</label>
           <input v-model="editor.term" class="wc-input" maxlength="128" />
-          <label>释义</label>
+          <label>{{ $t('terminology.labelDef') }}</label>
           <textarea v-model="editor.definition" class="wc-input area" rows="4"></textarea>
-          <label>别名（可选）</label>
-          <p class="field-hint">每条别名可指定目标语言；翻译为该语言时优先使用该别名。点击「添加别名」时，默认选中聊天页当前翻译语言（与「任意语言」相对）。</p>
+          <label>{{ $t('terminology.labelAliasOptional') }}</label>
+          <p class="field-hint">{{ $t('terminology.aliasHint') }}</p>
           <div class="alias-editor">
             <div v-for="(ar, idx) in editor.aliasRows" :key="'ar' + idx" class="alias-editor-row">
-              <input v-model="ar.alias" class="wc-input alias-text" maxlength="128" placeholder="别名文本" type="text" />
-              <select v-model="ar.targetLang" class="wc-input alias-lang" title="翻译目标语言">
-                <option value="">任意语言</option>
+              <input v-model="ar.alias" class="wc-input alias-text" maxlength="128" :placeholder="$t('terminology.aliasPlaceholder')" type="text" />
+              <select v-model="ar.targetLang" class="wc-input alias-lang" :title="$t('terminology.aliasLangTitle')">
+                <option value="">{{ $t('terminology.aliasAny') }}</option>
                 <option v-for="lang in languages" :key="lang.code" :value="lang.code">
                   {{ lang.flag }} {{ lang.name }}
                 </option>
               </select>
-              <button type="button" class="wc-btn wc-btn-ghost btn-sm" @click="removeAliasRow(idx)">删除</button>
+              <button type="button" class="wc-btn wc-btn-ghost btn-sm" @click="removeAliasRow(idx)">{{ $t('terminology.removeAlias') }}</button>
             </div>
-            <button type="button" class="wc-btn wc-btn-ghost add-alias-btn" @click="addAliasRow">添加别名</button>
+            <button type="button" class="wc-btn wc-btn-ghost add-alias-btn" @click="addAliasRow">{{ $t('terminology.addAlias') }}</button>
           </div>
           <div class="row2">
             <div>
-              <label>排序权重</label>
+              <label>{{ $t('terminology.labelSort') }}</label>
               <input v-model.number="editor.sortWeight" type="number" class="wc-input" />
             </div>
             <div>
-              <label>启用</label>
+              <label>{{ $t('terminology.labelEnabled') }}</label>
               <select v-model.number="editor.enabled" class="wc-input">
-                <option :value="1">是</option>
-                <option :value="0">否</option>
+                <option :value="1">{{ $t('terminology.yes') }}</option>
+                <option :value="0">{{ $t('terminology.no') }}</option>
               </select>
             </div>
           </div>
           <p v-if="editor.error" class="err">{{ editor.error }}</p>
           <div class="editor-actions">
-            <button type="button" class="wc-btn wc-btn-ghost" @click="closeEditor">取消</button>
+            <button type="button" class="wc-btn wc-btn-ghost" @click="closeEditor">{{ $t('terminology.cancel') }}</button>
             <button type="button" class="wc-btn wc-btn-primary" :disabled="saving" @click="saveEditor">
-              {{ saving ? '保存中…' : '保存' }}
+              {{ saving ? $t('terminology.saving') : $t('terminology.save') }}
             </button>
           </div>
         </div>
@@ -516,12 +516,12 @@ export default {
           const list = res.data.data || [];
           this.selectedSystemIds = [];
           await this.refreshAll();
-          alert(list.length ? `已加入 ${list.length} 条到我的术语` : '组内词条均已存在或无效，未新增');
+          alert(list.length ? this.$t('terminology.importAdded', { n: list.length }) : this.$t('terminology.importNoneGroup'));
         } else {
-          alert(res.data.message || '导入失败');
+          alert(res.data.message || this.$t('terminology.importFail'));
         }
       } catch (e) {
-        alert('导入失败');
+        alert(this.$t('terminology.importFail'));
       } finally {
         this.importing = false;
       }
@@ -529,7 +529,7 @@ export default {
     async importSelectedToMine() {
       const pending = this.selectedSystemIds.filter((id) => !this.isSystemImported(id));
       if (!pending.length) {
-        alert('请先勾选尚未加入「我的术语」的系统词条');
+        alert(this.$t('terminology.selectFirst'));
         return;
       }
       this.importing = true;
@@ -542,12 +542,12 @@ export default {
           const list = res.data.data || [];
           this.selectedSystemIds = [];
           await this.refreshAll();
-          alert(list.length ? `已加入 ${list.length} 条到我的术语` : '所选均已存在或无效，未新增');
+          alert(list.length ? this.$t('terminology.importAdded', { n: list.length }) : this.$t('terminology.importNoneSelected'));
         } else {
-          alert(res.data.message || '导入失败');
+          alert(res.data.message || this.$t('terminology.importFail'));
         }
       } catch (e) {
-        alert('导入失败');
+        alert(this.$t('terminology.importFail'));
       } finally {
         this.importing = false;
       }
@@ -566,15 +566,15 @@ export default {
         if (mineRes.data.code === CODES.SUCCESS) {
           this.mineGrouped = mineRes.data.data || { ungrouped: [], groups: [] };
         } else {
-          this.loadError = mineRes.data.message || '加载我的术语失败';
+          this.loadError = mineRes.data.message || this.$t('terminology.loadMineFail');
         }
         if (sysRes.data.code === CODES.SUCCESS) {
           this.systemTree = sysRes.data.data || { ungrouped: [], groups: [] };
         } else if (!this.loadError) {
-          this.loadError = sysRes.data.message || '加载系统术语失败';
+          this.loadError = sysRes.data.message || this.$t('terminology.loadSysFail');
         }
       } catch (e) {
-        this.loadError = '网络错误或未登录，请先登录后再打开术语库。';
+        this.loadError = this.$t('terminology.loadNetwork');
       } finally {
         this.loading = false;
       }
@@ -614,7 +614,7 @@ export default {
     async saveEditor() {
       this.editor.error = '';
       if (!this.editor.term.trim() || !this.editor.definition.trim()) {
-        this.editor.error = '请填写术语与释义';
+        this.editor.error = this.$t('terminology.errTermDef');
         return;
       }
       const payload = {
@@ -636,25 +636,25 @@ export default {
           this.closeEditor();
           await this.refreshAll();
         } else {
-          this.editor.error = res.data.message || '保存失败';
+          this.editor.error = res.data.message || this.$t('terminology.saveFail');
         }
       } catch (e) {
-        this.editor.error = '网络或服务器错误';
+        this.editor.error = this.$t('terminology.saveNetwork');
       } finally {
         this.saving = false;
       }
     },
     async remove(row) {
-      if (!confirm(`确定删除「${row.term}」？`)) return;
+      if (!confirm(this.$t('terminology.confirmDelete', { term: row.term }))) return;
       try {
         const res = await terminologyApi.deleteMyTerm(row.id);
         if (res.data.code === CODES.SUCCESS) {
           await this.refreshAll();
         } else {
-          alert(res.data.message || '删除失败');
+          alert(res.data.message || this.$t('terminology.deleteFail'));
         }
       } catch (e) {
-        alert('删除失败');
+        alert(this.$t('terminology.deleteFail'));
       }
     },
     async toggleRowEnabled(row) {
@@ -672,10 +672,10 @@ export default {
         if (res.data.code === CODES.SUCCESS) {
           row.enabled = next;
         } else {
-          alert(res.data.message || '更新失败');
+          alert(res.data.message || this.$t('terminology.updateFail'));
         }
       } catch (e) {
-        alert('网络错误');
+        alert(this.$t('terminology.networkErr'));
       } finally {
         this.togglingTermId = null;
       }

@@ -3,15 +3,15 @@
     <transition name="slide-side">
       <div class="contacts-sidebar" v-show="sidebarVisible" id="sidebar">
         <div class="sidebar-header">
-          <h3>联系人</h3>
+          <h3>{{ $t('chat.contacts') }}</h3>
           <button type="button" class="terminology-sidebar-btn btn-reset" @click="$router.push('/terminology')">
-            术语库
+            {{ $t('chat.terminology') }}
           </button>
         </div>
         <ul class="contacts-list">
           <li class="add-chat-item" @click="showAddContactModal = true">
             <div class="add-chat-icon">+</div>
-            <div class="add-chat-text">新增聊天</div>
+            <div class="add-chat-text">{{ $t('chat.newChat') }}</div>
           </li>
           <li
             v-for="contact in contacts"
@@ -50,21 +50,21 @@
 
       <div class="chat-header">
         <div class="header-left">
-          <button class="toggle-sidebar-btn btn-reset" @click="toggleSidebar" title="切换侧边栏/返回列表">
+          <button class="toggle-sidebar-btn btn-reset" @click="toggleSidebar" :title="$t('chat.toggleSidebar')">
             <span v-if="isMobile">⬅️</span> <span v-else>{{ sidebarVisible ? '◀' : '▶' }}</span>
           </button>
 
           <div class="contact-avatar" v-if="currentContactName">
             <span>{{ currentContactName.charAt(0) }}</span>
           </div>
-          <h2 class="chat-title">{{ currentContactName || '未选择联系人' }}</h2>
+          <h2 class="chat-title">{{ currentContactName || $t('chat.noContactSelected') }}</h2>
 
           <div class="header-actions">
             <button
               v-if="selectedContactId"
               @click="handleClearHistory"
               class="icon-btn btn-reset"
-              title="清空历史记录"
+              :title="$t('chat.clearHistoryTitle')"
               type="button"
             >
               <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -78,7 +78,7 @@
               v-if="selectedContactId"
               @click="handleRecoverHistory"
               class="icon-btn btn-reset"
-              title="恢复历史记录"
+              :title="$t('chat.recoverHistoryTitle')"
               type="button"
             >
               <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -90,20 +90,20 @@
               class="summary-btn mobile-hide-text"
               @click="handleSummarize"
               :disabled="aiProcessing || !filteredMessages.length"
-              title="总结当前聊天记录"
+              :title="$t('chat.summarizeTitle')"
               type="button"
             >
               <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
                 <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
               </svg>
-              <span class="btn-text">总结</span>
+              <span class="btn-text">{{ $t('chat.summarize') }}</span>
             </button>
             <button
               class="analysis-btn mobile-hide-text"
               @click="handleAnalysis"
               :disabled="aiProcessing || !filteredMessages.length"
-              title="查看聊天数据分析看板"
+              :title="$t('chat.analysisTitle')"
               type="button"
             >
               <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -111,16 +111,16 @@
                 <line x1="12" y1="20" x2="12" y2="4" />
                 <line x1="6" y1="20" x2="6" y2="14" />
               </svg>
-              <span class="btn-text">分析</span>
+              <span class="btn-text">{{ $t('chat.analysis') }}</span>
             </button>
           </div>
         </div>
 
         <div class="header-right">
           <div class="translation-controls" v-if="selectedContactId && !isMobileSimple">
-            <label class="switch-label" title="收到消息将自动翻译为指定语言">
+            <label class="switch-label" :title="$t('chat.autoTranslateTitle')">
               <input type="checkbox" v-model="autoTranslate" />
-              <span class="switch-text">自动翻译</span>
+              <span class="switch-text">{{ $t('chat.autoTranslate') }}</span>
             </label>
 
             <select v-model="targetLang" class="lang-select">
@@ -135,7 +135,7 @@
               <button
                 type="button"
                 class="user-avatar-trigger btn-reset"
-                :title="userMenuOpen ? '关闭菜单' : '账户菜单'"
+                :title="userMenuOpen ? $t('chat.closeMenu') : $t('chat.openMenu')"
                 aria-haspopup="menu"
                 :aria-expanded="userMenuOpen"
                 @click.stop="toggleUserMenu"
@@ -145,7 +145,7 @@
                 </div>
               </button>
               <div class="current-user-meta" v-if="!isMobileSimple">
-                <div class="current-user-nickname">{{ nickname || '未登录' }}</div>
+                <div class="current-user-nickname">{{ nickname || $t('chat.notLoggedIn') }}</div>
               </div>
             </div>
             <transition name="dropdown-fade">
@@ -156,10 +156,10 @@
                 @click.stop
               >
                 <button type="button" class="user-dropdown-item" role="menuitem" @click="goProfile">
-                  个人中心
+                  {{ $t('chat.profile') }}
                 </button>
                 <button type="button" class="user-dropdown-item user-dropdown-item-warn" role="menuitem" @click="logoutFromMenu">
-                  退出登录
+                  {{ $t('chat.logout') }}
                 </button>
               </div>
             </transition>
@@ -171,8 +171,8 @@
         <div v-if="messages.length === 0 && selectedContactId" class="empty-chat-hint">
         </div>
         <div v-else-if="!selectedContactId" class="empty-chat-hint">
-          <p v-if="!isMobile">请点击左侧折叠按钮或选择一个联系人。</p>
-          <p v-else>点击左上角返回联系人列表</p>
+          <p v-if="!isMobile">{{ $t('chat.emptyHintDesktop') }}</p>
+          <p v-else>{{ $t('chat.emptyHintMobile') }}</p>
         </div>
         <div class="message-list">
           <div
@@ -213,20 +213,20 @@
                         <button
                           class="clear-trans-btn"
                           @click.stop="clearTranslation(msg)"
-                          title="清除翻译"
+                          :title="$t('chat.clearTransTitle')"
                         >
                           ❌
                         </button>
                       </div>
                     </div>
-                    <div v-else-if="msg.isTranslating" class="translating-spinner">翻译中...</div>
+                    <div v-else-if="msg.isTranslating" class="translating-spinner">{{ $t('chat.translating') }}</div>
 
                     <button
                       v-if="!msg.translatedContent && !msg.isTranslating"
                       class="manual-trans-btn"
                       @click="translateSingleMessage(msg)"
                     >
-                      翻译
+                      {{ $t('chat.translate') }}
                     </button>
                   </div>
                 </template>
@@ -255,9 +255,9 @@
                       class="voice-to-text-btn"
                       @click="convertVoiceToText(msg)"
                     >
-                      转文字
+                      {{ $t('chat.toText') }}
                     </button>
-                    <div v-if="msg.isTranscribing" class="transcribing-spinner">转文字中...</div>
+                    <div v-if="msg.isTranscribing" class="transcribing-spinner">{{ $t('chat.transcribing') }}</div>
                     <div v-if="msg.textContent" class="voice-text-content">
                       <div class="divider"></div>
                       <div class="voice-text-line">
@@ -265,7 +265,7 @@
                         <button
                           class="clear-text-btn"
                           @click.stop="clearVoiceText(msg)"
-                          title="清除文字"
+                          :title="$t('chat.clearTextTitle')"
                         >
                           ❌
                         </button>
@@ -282,20 +282,20 @@
                         <button
                           class="clear-trans-btn"
                           @click.stop="clearTranslation(msg)"
-                          title="清除翻译"
+                          :title="$t('chat.clearTransTitle')"
                         >
                           ❌
                         </button>
                       </div>
                     </div>
-                    <div v-else-if="msg.isTranslating" class="translating-spinner">翻译中...</div>
+                    <div v-else-if="msg.isTranslating" class="translating-spinner">{{ $t('chat.translating') }}</div>
 
                     <button
                       v-if="msg.textContent && !msg.translatedContent && !msg.isTranslating"
                       class="manual-trans-btn"
                       @click="translateSingleMessage(msg)"
                     >
-                      翻译
+                      {{ $t('chat.translate') }}
                     </button>
                   </div>
                 </template>
@@ -309,12 +309,12 @@
         <transition name="slide-up">
           <div v-if="aiSuggestion" class="ai-suggestion-box">
             <div class="suggestion-text">
-              <strong>{{ aiSuggestionType === 'polish' ? 'AI 润色建议:' : 'AI 智能回复:' }}</strong>
+              <strong>{{ aiSuggestionType === 'polish' ? $t('chat.polishLabel') : $t('chat.replyLabel') }}</strong>
               {{ aiSuggestion }}
             </div>
             <div class="suggestion-actions">
-              <button @click="applySuggestion" class="apply-btn">采纳</button>
-              <button @click="cancelSuggestion" class="cancel-btn">取消</button>
+              <button @click="applySuggestion" class="apply-btn">{{ $t('chat.apply') }}</button>
+              <button @click="cancelSuggestion" class="cancel-btn">{{ $t('chat.cancel') }}</button>
             </div>
           </div>
         </transition>
@@ -323,7 +323,7 @@
             v-if="!isMobile"
             class="mic-trigger-btn pc-mic-btn btn-reset"
             @click="startPcRecording"
-            title="点击开始录音"
+            :title="$t('chat.pcMicTitle')"
             type="button"
           >
             <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -359,7 +359,7 @@
               <path d="M9 14v2M15 14v2" />
               <path d="M12 2v3M9 5h6" />
             </svg>
-            <span class="btn-text">智能回复</span>
+            <span class="btn-text">{{ $t('chat.btnSmartReply') }}</span>
           </button>
           <button
             class="ai-tool-btn"
@@ -371,7 +371,7 @@
               <path d="M12 3l-1.5 4.5L6 9l4.5 1.5L12 15l1.5-4.5L18 9l-4.5-1.5L12 3z" />
               <path d="M5 19h14" />
             </svg>
-            <span class="btn-text">商务润色</span>
+            <span class="btn-text">{{ $t('chat.btnBusinessPolish') }}</span>
           </button>
           <button
             class="ai-tool-btn"
@@ -382,7 +382,7 @@
             <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 0 1-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
             </svg>
-            <span class="btn-text">语气软化</span>
+            <span class="btn-text">{{ $t('chat.btnToneSoften') }}</span>
           </button>
 
           <div class="ai-loading" v-if="aiProcessing">Thinking...</div>
@@ -393,7 +393,7 @@
             <button
               class="emoji-toggle-btn btn-reset"
               @click.stop="showEmojiPicker = !showEmojiPicker"
-              title="选择表情"
+              :title="$t('chat.emojiPickerTitle')"
             >
               😊
             </button>
@@ -409,10 +409,10 @@
             v-model="message"
             ref="messageInput"
             @keyup.enter="!aiSuggestion && sendMessage()"
-            placeholder="输入消息..."
+            :placeholder="$t('chat.messagePlaceholder')"
             class="message-input"
           />
-          <button @click="sendMessage" class="send-button">发送</button>
+          <button @click="sendMessage" class="send-button">{{ $t('chat.send') }}</button>
         </div>
       </div>
 
@@ -420,15 +420,15 @@
         <div v-if="showSummaryModal" class="chat-summary-modal-overlay modal-overlay-common">
           <div class="chat-summary-modal panel-card-common">
             <div class="modal-header">
-              <h3>聊天摘要</h3>
+              <h3>{{ $t('chat.summaryTitle') }}</h3>
               <button @click="showSummaryModal = false" class="close-btn btn-reset">×</button>
             </div>
             <div class="modal-content">
               <div v-if="chatSummary" class="summary-text">{{ chatSummary }}</div>
-              <div v-else>正在生成摘要...</div>
+              <div v-else>{{ $t('chat.summaryGenerating') }}</div>
             </div>
             <div class="modal-footer">
-              <button @click="copySummary" class="copy-btn">复制摘要</button>
+              <button @click="copySummary" class="copy-btn">{{ $t('chat.copySummary') }}</button>
             </div>
           </div>
         </div>
@@ -437,19 +437,19 @@
         <div v-if="showAnalysisModal" class="analysis-modal-overlay modal-overlay-common">
           <div class="analysis-modal panel-card-common">
             <div class="modal-header">
-              <h3>🤖 AI 聊天数据看板</h3>
+              <h3>{{ $t('chat.analysisModalTitle') }}</h3>
               <button @click="showAnalysisModal = false" class="close-btn btn-reset">×</button>
             </div>
 
             <div class="modal-content analysis-content">
               <div v-if="analysisLoading" class="analysis-loading">
                 <div class="loading-spinner"></div>
-                <p>AI 正在分析你们的聊天数据...</p>
+                <p>{{ $t('chat.analysisModalLoading') }}</p>
               </div>
 
               <div v-else-if="analysisData" class="dashboard-grid">
                 <div class="dashboard-card summary-card">
-                  <div class="card-title">✨ AI 关系透视</div>
+                  <div class="card-title">{{ $t('chat.analysisCardRelation') }}</div>
                   <div class="ai-comment">{{ analysisData.summary }}</div>
                 </div>
 
@@ -469,7 +469,7 @@
     <transition name="fade">
       <div v-if="isPcRecording" class="pc-recording-overlay">
         <div class="pc-record-modal">
-          <div class="modal-title">正在录音...</div>
+          <div class="modal-title">{{ $t('chat.recordingTitle') }}</div>
           <div class="visualizer-container pc-visualizer">
             <div
               v-for="(bar, index) in bars"
@@ -481,13 +481,13 @@
           <div class="record-timer">{{ recordDuration }}s</div>
           <div class="pc-record-actions">
             <button class="action-btn cancel" @click="handlePcAction('cancel')">
-              <span class="icon">🗑️</span> 取消
+              <span class="icon">🗑️</span> {{ $t('chat.recordingCancel') }}
             </button>
             <button class="action-btn transcribe" @click="handlePcAction('transcribe')">
-              <span class="icon">📝</span> 转文字
+              <span class="icon">📝</span> {{ $t('chat.recordingTranscribe') }}
             </button>
             <button class="action-btn send" @click="handlePcAction('send')">
-              <span class="icon">🚀</span> 发送
+              <span class="icon">🚀</span> {{ $t('chat.recordingSend') }}
             </button>
           </div>
         </div>
@@ -515,8 +515,8 @@
           <div class="record-timer">{{ recordDuration }}s</div>
         </div>
         <div class="record-zones">
-          <div class="zone left" :class="{ active: recordStatus === 'cancel' }">取消</div>
-          <div class="zone right" :class="{ active: recordStatus === 'transcribe' }">转文字</div>
+          <div class="zone left" :class="{ active: recordStatus === 'cancel' }">{{ $t('chat.zoneCancel') }}</div>
+          <div class="zone right" :class="{ active: recordStatus === 'transcribe' }">{{ $t('chat.toText') }}</div>
         </div>
       </div>
     </transition>
@@ -613,9 +613,9 @@ export default {
   },
   computed: {
     statusHint() {
-      if (this.recordStatus === 'cancel') return '松开手指，取消发送'
-      if (this.recordStatus === 'transcribe') return '松开手指，转文字'
-      return '手指上划，取消或转文字'
+      if (this.recordStatus === 'cancel') return this.$t('chat.statusCancel')
+      if (this.recordStatus === 'transcribe') return this.$t('chat.statusTranscribe')
+      return this.$t('chat.statusSwipe')
     },
     filteredMessages() {
       if (!this.selectedContactId || !this.userId) return []
@@ -648,7 +648,7 @@ export default {
     // 语音转文字
     async convertVoiceToText(msg) {
       if (!msg.audioUrl) {
-        this.showNotification('音频链接为空', 'error');
+        this.showNotification(this.$t('chat.notifications.audioUrlEmpty'), 'error');
         return;
       }
       // 标记转文字中
@@ -659,16 +659,16 @@ export default {
         });
         if (response.data.code === CODES.SUCCESS && response.data.data) {
           msg.textContent = response.data.data.text; // 保存转文字结果
-          this.showNotification('语音转文字成功');
+          this.showNotification(this.$t('chat.notifications.voiceToTextOk'));
           if (this.autoTranslate && msg.textContent && !msg.translatedContent) {
             this.translateSingleMessage(msg)
           }
         } else {
-          this.showNotification(response.data.msg || '语音转文字失败', 'error');
+          this.showNotification(response.data.msg || this.$t('chat.notifications.voiceToTextFail'), 'error');
         }
       } catch (error) {
         console.error('语音转文字失败:', error);
-        this.showNotification('语音转文字服务异常', 'error');
+        this.showNotification(this.$t('chat.notifications.voiceToTextErr'), 'error');
       } finally {
         // 取消加载状态
         msg.isTranscribing = false;
@@ -688,7 +688,7 @@ export default {
       const audio = new Audio(url)
       audio.play().catch((err) => {
         console.error('播放失败:', err)
-        this.showNotification('播放失败，请检查文件链接是否有效','error')
+        this.showNotification(this.$t('chat.notifications.playFail'),'error')
       })
     },
     async handleStrangerMessage(senderId, content) {
@@ -777,7 +777,7 @@ export default {
           )
           this.scrollToBottom()
         } else {
-          this.showNotification(res.data.msg || '加载历史失败', 'error')
+          this.showNotification(res.data.msg || this.$t('chat.notifications.historyLoadFail'), 'error')
         }
       }
       axios
@@ -785,10 +785,10 @@ export default {
         .then(applyHistory)
         .catch((err) => {
           console.warn('加载历史首次失败', err)
-          this.showNotification('加载历史较慢或中断，正在重试一次…', 'warning')
+          this.showNotification(this.$t('chat.notifications.historyRetry'), 'warning')
           return axios.get('/api/chat/history', historyReq).then(applyHistory).catch((err2) => {
             console.error('加载历史重试失败', err2)
-            this.showNotification('加载历史失败，请检查网络或稍后重试', 'error')
+            this.showNotification(this.$t('chat.notifications.historyFailRetry'), 'error')
           })
         })
     },
@@ -822,14 +822,14 @@ export default {
     async handleAnalysis() {
       if (!this.selectedContactId || this.analysisLoading) return
       if (this.filteredMessages.length < 5) {
-        this.showNotification('聊天记录太少，无法进行有效分析', 'warning')
+        this.showNotification(this.$t('chat.notifications.analysisTooFew'), 'warning')
         return
       }
       this.showAnalysisModal = true
       this.analysisLoading = true
       this.analysisData = null
       const chatsForAnalysis = this.filteredMessages.map((m) => ({
-        userId: m.senderId === this.userId ? '我' : '对方',
+        userId: m.senderId === this.userId ? this.$t('chat.me') : this.$t('chat.peer'),
         content: m.content,
       }))
       try {
@@ -837,7 +837,7 @@ export default {
         if (response.data.code === CODES.SUCCESS && response.data.data) {
           const result = response.data.data
           if (!result.keywords || !result.sentiment) {
-            this.showNotification('AI 数据不完整，无法显示图表', 'error')
+            this.showNotification(this.$t('chat.notifications.analysisIncomplete'), 'error')
             this.showAnalysisModal = false
             return
           }
@@ -848,12 +848,12 @@ export default {
             }, 50)
           })
         } else {
-          this.showNotification(response.data.msg || '分析失败，请重试', 'error')
+          this.showNotification(response.data.msg || this.$t('chat.notifications.analysisFail'), 'error')
           this.showAnalysisModal = false
         }
       } catch (e) {
         console.error(e)
-        this.showNotification('AI 服务繁忙', 'error')
+        this.showNotification(this.$t('chat.notifications.analysisBusy'), 'error')
         this.showAnalysisModal = false
       } finally {
         this.analysisLoading = false
@@ -871,14 +871,14 @@ export default {
         const keywords = this.analysisData.keywords || []
         if (keywords.length === 0) {
           this.chartInstanceKeywords.setOption({
-            title: { text: '💬 暂无关键词数据', left: 'center' },
+            title: { text: this.$t('chat.chartNoKeywords'), left: 'center' },
           })
           this.chartInstanceKeywords.setOption({
-            title: { text: '💬 暂无关键词数据', left: 'center' },
+            title: { text: this.$t('chat.chartNoKeywords'), left: 'center' },
           })
         } else {
           this.chartInstanceKeywords.setOption({
-            title: { text: '💬 高频热词 Top 8', left: 'center', textStyle: { fontSize: 14 } },
+            title: { text: this.$t('chat.chartHotWords'), left: 'center', textStyle: { fontSize: 14 } },
             tooltip: {},
             grid: { top: 40, bottom: 20, left: 10, right: 10, containLabel: true },
             xAxis: { type: 'value', show: false },
@@ -919,13 +919,13 @@ export default {
         const sentiments = this.analysisData.sentiment || []
         if (sentiments.length === 0) {
           this.chartInstanceSentiment.setOption({
-            title: { text: '❤️ 暂无情感波动数据', left: 'center' },
+            title: { text: this.$t('chat.chartNoSentiment'), left: 'center' },
           })
           return
         }
         this.chartInstanceSentiment.setOption({
           title: {
-            text: '❤️ 情感波动趋势 (最近10条)',
+            text: this.$t('chat.chartSentimentTrend'),
             left: 'center',
             textStyle: { fontSize: 14 },
           },
@@ -983,10 +983,10 @@ export default {
         navigator.clipboard
           .writeText(this.chatSummary)
           .then(() => {
-            this.showNotification('摘要已复制到剪贴板')
+            this.showNotification(this.$t('chat.notifications.summaryCopied'))
           })
           .catch((err) => {
-            this.showNotification('复制失败', 'error')
+            this.showNotification(this.$t('chat.notifications.copyFail'), 'error')
             console.error('无法复制文本: ', err)
           })
       }
@@ -994,14 +994,14 @@ export default {
     async handleSummarize() {
       if (!this.selectedContactId || this.aiProcessing) return
       if (!this.filteredMessages.length) {
-        this.showNotification('当前聊天记录为空，无法总结', 'warning')
+        this.showNotification(this.$t('chat.notifications.summaryEmpty'), 'warning')
         return
       }
       this.aiProcessing = true
       this.chatSummary = ''
       this.showSummaryModal = true
       const chatsForSummarize = this.filteredMessages.map((m) => ({
-        userId: m.senderId === this.userId ? '我' : '对方',
+        userId: m.senderId === this.userId ? this.$t('chat.me') : this.$t('chat.peer'),
         content: m.content,
       }))
       try {
@@ -1009,13 +1009,13 @@ export default {
         if (response.data.code === CODES.SUCCESS && response.data.data) {
           this.chatSummary = response.data.data.trim()
         } else {
-          this.chatSummary = '摘要生成失败，请稍后再试。'
-          this.showNotification(response.data.msg || '摘要生成失败', 'error')
+          this.chatSummary = this.$t('chat.summaryFailText')
+          this.showNotification(response.data.msg || this.$t('chat.notifications.summaryFail'), 'error')
         }
       } catch (e) {
         console.error(e)
-        this.chatSummary = '摘要服务连接失败。'
-        this.showNotification('AI 服务繁忙，请稍后再试', 'error')
+        this.chatSummary = this.$t('chat.summaryConnFail')
+        this.showNotification(this.$t('chat.notifications.summaryBusy'), 'error')
       } finally {
         this.aiProcessing = false
       }
@@ -1061,15 +1061,15 @@ export default {
     async handleSmartReply() {
       if (!this.selectedContactId) return
       if (this.aiProcessing) {
-        this.showNotification('AI 正在处理上一个请求，请稍候', 'warning')
+        this.showNotification(this.$t('chat.notifications.aiBusy'), 'warning')
         return
       }
       if (this.aiSuggestion) {
-        this.showNotification('请先处理当前的 AI 建议 (Enter/Esc)', 'warning')
+        this.showNotification(this.$t('chat.notifications.handleSuggestionFirst'), 'warning')
         return
       }
       const originalChats = this.filteredMessages.slice(-20).map((m) => ({
-        userId: m.senderId === this.userId ? '我' : '对方',
+        userId: m.senderId === this.userId ? this.$t('chat.me') : this.$t('chat.peer'),
         content: m.content,
       }))
 
@@ -1084,7 +1084,7 @@ export default {
       ]
 
       if (chatsForSmartReply.length === 0) {
-        this.showNotification('没有足够的聊天记录来生成智能回复', 'warning')
+        this.showNotification(this.$t('chat.notifications.smartReplyTooFew'), 'warning')
         return
       }
       this.aiProcessing = true
@@ -1095,13 +1095,13 @@ export default {
         if (response.data.code === CODES.SUCCESS && response.data.data) {
           this.aiSuggestion = response.data.data.trim()
           this.aiSuggestionType = 'smartReply'
-          this.showNotification('已生成智能回复，请按 Enter 采纳')
+          this.showNotification(this.$t('chat.notifications.smartReplyOk'))
         } else {
-          this.showNotification(response.data.msg || 'AI智能回复服务返回错误或结果为空', 'error')
+          this.showNotification(response.data.msg || this.$t('chat.notifications.smartReplyFail'), 'error')
         }
       } catch (e) {
         console.error(e)
-        this.showNotification('AI 服务繁忙', 'error')
+        this.showNotification(this.$t('chat.notifications.analysisBusy'), 'error')
       } finally {
         this.aiProcessing = false
       }
@@ -1123,7 +1123,7 @@ export default {
       this.handleLogout()
     },
     handleLogout() {
-      if (confirm('确定要退出登录吗？')) {
+      if (confirm(this.$t('chat.confirmLogout'))) {
         if (this.ws) this.ws.close()
         localStorage.clear()
         this.$router.push('/login')
@@ -1138,7 +1138,7 @@ export default {
             id: item.id,
             username: item.username,
             nickname: item.nickname,
-            lastMessage: item.content || '无消息',
+            lastMessage: item.content || this.$t('chat.noMessage'),
           }))
         }
       })
@@ -1153,7 +1153,7 @@ export default {
           id: user.id,
           username: user.username,
           nickname: user.nickname,
-          lastMessage: '无消息',
+          lastMessage: this.$t('chat.noMessage'),
         })
       }
       this.selectContact({ id: user.id, nickname: user.nickname, username: user.username })
@@ -1170,7 +1170,7 @@ export default {
     },
     messageAvatarLetter(msg) {
       if (msg.senderId == this.userId) {
-        return (this.nickname && this.nickname.charAt(0)) || '我'
+        return (this.nickname && this.nickname.charAt(0)) || this.$t('chat.me')
       }
       return (this.currentContactName && this.currentContactName.charAt(0)) || '?'
     },
@@ -1197,7 +1197,7 @@ export default {
     },
     async handleClearHistory() {
       if (!this.selectedContactId) return
-      if (!confirm(`确定要清空与 ${this.currentContactName} 的所有聊天记录吗？`)) {
+      if (!confirm(this.$t('chat.confirmClearHistory', { name: this.currentContactName }))) {
         return
       }
       try {
@@ -1209,20 +1209,20 @@ export default {
           this.messages = []
           const contact = this.contacts.find((c) => c.id == this.selectedContactId)
           if (contact) {
-            contact.lastMessage = '无消息'
+            contact.lastMessage = this.$t('chat.noMessage')
           }
-          this.showNotification('聊天记录已清空', 'info')
+          this.showNotification(this.$t('chat.notifications.historyCleared'), 'info')
         } else {
-          this.showNotification(response.data.msg || '清空历史记录失败', 'error')
+          this.showNotification(response.data.msg || this.$t('chat.notifications.clearHistoryFail'), 'error')
         }
       } catch (error) {
         console.error('清空历史记录请求失败', error)
-        this.showNotification('清空历史记录失败，网络或服务错误', 'error')
+        this.showNotification(this.$t('chat.notifications.clearHistoryNetwork'), 'error')
       }
     },
     async handleRecoverHistory() {
       if (!this.selectedContactId) return
-      if (!confirm(`确定要恢复与 ${this.currentContactName} 之间已逻辑删除的聊天记录吗？`)) {
+      if (!confirm(this.$t('chat.confirmRecoverHistory', { name: this.currentContactName }))) {
         return
       }
       try {
@@ -1236,23 +1236,23 @@ export default {
           if (currentContact) {
             this.selectContact(currentContact)
           }
-          this.showNotification('聊天记录已恢复', 'info')
+          this.showNotification(this.$t('chat.notifications.historyRecovered'), 'info')
         } else {
-          this.showNotification(response.data.msg || '恢复历史记录失败', 'error')
+          this.showNotification(response.data.msg || this.$t('chat.notifications.recoverFail'), 'error')
         }
       } catch (error) {
         console.error('恢复历史记录请求失败', error)
-        this.showNotification('恢复历史记录失败，网络或服务错误', 'error')
+        this.showNotification(this.$t('chat.notifications.recoverNetwork'), 'error')
       }
     },
     async handleAiPolish(style) {
       if (!this.message.trim()) return
       if (this.aiProcessing) {
-        this.showNotification('AI 正在处理上一个请求，请稍候', 'warning')
+        this.showNotification(this.$t('chat.notifications.aiBusy'), 'warning')
         return
       }
       if (this.aiSuggestion) {
-        this.showNotification('请先处理当前的 AI 建议 (Enter/Esc)', 'warning')
+        this.showNotification(this.$t('chat.notifications.handleSuggestionFirst'), 'warning')
         return
       }
       this.aiProcessing = true
@@ -1267,13 +1267,15 @@ export default {
           this.aiSuggestion = response.data.data.trim()
           this.aiSuggestionType = 'polish'
           this.showNotification(
-            `已完成${style === 'business' ? '商务' : '语气'}润色，请按 Enter 采纳`,
+            style === 'business'
+              ? this.$t('chat.notifications.polishBusinessDone')
+              : this.$t('chat.notifications.polishToneDone'),
           )
         } else {
-          this.showNotification('AI润色服务返回错误或结果为空', 'error')
+          this.showNotification(this.$t('chat.notifications.polishFail'), 'error')
         }
       } catch (error) {
-        this.showNotification('AI服务暂时繁忙', 'error')
+        this.showNotification(this.$t('chat.notifications.polishBusy'), 'error')
       } finally {
         this.aiProcessing = false
       }
@@ -1283,7 +1285,7 @@ export default {
       const sourceText =
         msg.type === 'VOICE' ? (msg.textContent || '').trim() : (msg.content || '').trim()
       if (msg.type === 'VOICE' && !sourceText) {
-        this.showNotification('请先使用「转文字」后再翻译', 'warning')
+        this.showNotification(this.$t('chat.notifications.translateNeedStt'), 'warning')
         return
       }
       if (!sourceText) return
@@ -1298,11 +1300,11 @@ export default {
           msg.translatedToLang = this.targetLang
         } else {
           console.warn('翻译接口返回异常', response.data)
-          this.showNotification('翻译失败', 'error')
+          this.showNotification(this.$t('chat.notifications.translateFail'), 'error')
         }
       } catch (error) {
         console.error('翻译失败', error)
-        this.showNotification('翻译服务不可用', 'error')
+        this.showNotification(this.$t('chat.notifications.translateUnavailable'), 'error')
       } finally {
         msg.isTranslating = false
         this.$forceUpdate()
@@ -1313,7 +1315,7 @@ export default {
       const newMessage = {
         id: Date.now(),
         senderId: this.userId,
-        senderName: '我',
+        senderName: this.$t('chat.me'),
         targetId: this.selectedContactId,
         targetName: this.currentContactName,
         content: this.message,
@@ -1345,11 +1347,11 @@ export default {
           }
         } else {
           newMessage.status = 'offline'
-          this.showNotification(data.msg || '对方不在线', 'error')
+          this.showNotification(data.msg || this.$t('chat.notifications.peerOffline'), 'error')
         }
       } catch (error) {
         newMessage.status = 'error'
-        this.showNotification('发送失败', 'error')
+        this.showNotification(this.$t('chat.notifications.sendFail'), 'error')
       }
     },
     // ---------------- 通用：音频可视化核心逻辑 ----------------
@@ -1412,7 +1414,7 @@ export default {
           '常见原因：① 写成了 https 或漏了端口；② 用 127.0.0.1 打开却填了 localhost（或相反）；③ 用 IP 打开却填了主机名；④ 改完未从系统托盘/任务管理器彻底结束 Chrome 再启动；⑤ 企业策略禁用该实验项。更稳妥：Vite 开启 https（自签/mkcert）或正式 HTTPS。',
       )
       return Promise.reject(
-        new Error('非安全连接下浏览器未开放麦克风。请按 F12 查看控制台中的 origin 与说明，或改用 HTTPS。'),
+        new Error(this.$t('chat.mic.insecureReject')),
       )
     },
 
@@ -1425,18 +1427,18 @@ export default {
         name === 'NotAllowedError' &&
         (lower.includes('denied by system') || lower.includes('permission denied by system'))
       ) {
-        return '系统未向 Chrome 开放麦克风：请到系统「隐私/麦克风」设置中允许 Google Chrome；再在地址栏锁图标 → 网站设置中将本站麦克风设为「允许」。'
+        return this.$t('chat.mic.notAllowedSystem')
       }
       if (name === 'NotAllowedError') {
-        return '麦克风权限被拒绝：请点击地址栏左侧「锁形/信息图标」→ 网站设置 → 麦克风 → 允许；若已拒绝过，请改为「询问」后刷新页面再试。'
+        return this.$t('chat.mic.notAllowed')
       }
       if (name === 'NotFoundError') {
-        return '未检测到麦克风设备'
+        return this.$t('chat.mic.notFound')
       }
       if (raw && !raw.includes('undefined')) {
         return raw
       }
-      return '无法访问麦克风：请通过 HTTPS 或 localhost 打开，并检查浏览器与系统权限'
+      return this.$t('chat.mic.generic')
     },
 
     // ---------------- PC 端录音逻辑 ----------------
@@ -1470,7 +1472,7 @@ export default {
         const duration = this.recordDuration;
         if (type === 'send') {
           if (duration < 1) {
-            this.showNotification('录音时间太短', 'warning')
+            this.showNotification(this.$t('chat.notifications.recordTooShort'), 'warning')
           } else {
             this.uploadAndSendVoice(audioBlob, duration);
           }
@@ -1571,7 +1573,7 @@ export default {
           } else {
             // 发送语音
             if (finalDuration < 1) {
-              this.showNotification('录音时间太短', 'warning')
+              this.showNotification(this.$t('chat.notifications.recordTooShort'), 'warning')
             } else {
               // 【修复点】：确保这里传入的是刚刚获取的 finalDuration
               this.uploadAndSendVoice(audioBlob, finalDuration);
@@ -1593,10 +1595,10 @@ export default {
         const voiceMsg = {
           userId: this.userId,
           senderId: this.userId,
-          senderName: '我',
+          senderName: this.$t('chat.me'),
           targetId: this.selectedContactId,
           targetName: this.currentContactName,
-          content: '[语音消息]',
+          content: this.$t('chat.voiceMessageContent'),
           type: 'VOICE', // 接收来自后端的 type 字段
           audioUrl: audioUrl, // 接收语音地址
           duration: duration, // 接收时长
@@ -1607,7 +1609,7 @@ export default {
         this.messages.push(voiceMsg)
         this.scrollToBottom()
       } catch (e) {
-        this.showNotification('语音发送失败', 'error')
+        this.showNotification(this.$t('chat.notifications.voiceSendFail'), 'error')
         console.log(e)
       }
     },
@@ -1619,10 +1621,10 @@ export default {
         const res = await axios.post('/api/ai/audio/stt', formData)
         if (res.data.code === CODES.SUCCESS) {
           this.message = res.data.data
-          this.showNotification('已转写为文字')
+          this.showNotification(this.$t('chat.notifications.sttOk'))
         }
       } catch (e) {
-        this.showNotification('识别失败', 'error')
+        this.showNotification(this.$t('chat.notifications.sttFail'), 'error')
       } finally {
         this.aiProcessing = false
       }
@@ -1677,7 +1679,7 @@ export default {
           const senderId = data.userId || data.senderId
           // 查找现有联系人
           let contactIndex = this.contacts.findIndex((c) => c.id == senderId)
-          let senderName = '未知用户'
+          let senderName = this.$t('chat.unknownUser')
           if (contactIndex !== -1) {
             // --- 情况 A: 是熟人 ---
             senderName = this.contacts[contactIndex].nickname
@@ -1688,13 +1690,13 @@ export default {
             this.contacts.unshift(existingContact)
           } else if (senderId != this.userId) {
             // --- 情况 B: 是陌生人 ---
-            senderName = `新朋友` // 暂时显示 ID，等待接口返回昵称
+            senderName = this.$t('chat.newFriend') // 暂时显示 ID，等待接口返回昵称
             this.handleStrangerMessage(senderId, data.content)
           }
           const message = buildRealtimeMessage(data, senderName)
           if (this.selectedContactId != senderId) {
             this.unreadCounts[senderId] = (this.unreadCounts[senderId] || 0) + 1
-            this.showNotification(`收到来自 "${senderName}" 的新消息`)
+            this.showNotification(this.$t('chat.newMessageFrom', { name: senderName }))
           } else {
             this.messages.push(message)
             if (this.autoTranslate) {

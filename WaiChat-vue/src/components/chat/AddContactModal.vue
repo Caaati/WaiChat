@@ -2,22 +2,22 @@
   <div v-if="isVisible" class="modal-overlay">
     <div class="modal wc-glass-card">
       <div class="modal-header">
-        <h3>查找用户</h3>
-        <button class="close-btn" @click="closeModal" aria-label="关闭">&times;</button>
+        <h3>{{ $t('addContact.title') }}</h3>
+        <button class="close-btn" @click="closeModal" :aria-label="$t('addContact.close')">&times;</button>
       </div>
       <div class="modal-body">
         <input
             type="text"
             v-model="searchQuery"
             @keyup.enter="fetchSearchResults(searchQuery)"
-            placeholder="输入用户名、昵称或ID，按Enter搜索"
+            :placeholder="$t('addContact.placeholder')"
             class="search-input wc-input"
             ref="searchInput"
         />
         <div class="search-results">
-          <div v-if="searching">搜索中...</div>
+          <div v-if="searching">{{ $t('addContact.searching') }}</div>
           <div v-else-if="searchResults.length === 0">
-            未找到匹配的用户
+            {{ $t('addContact.noResults') }}
           </div>
           <div
               v-for="user in searchResults"

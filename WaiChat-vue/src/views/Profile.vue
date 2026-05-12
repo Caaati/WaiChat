@@ -2,10 +2,10 @@
   <div class="profile-page wc-page">
     <div class="profile-card wc-glass-card">
       <header class="profile-head">
-        <button type="button" class="wc-btn wc-btn-ghost back-btn" @click="goChat">返回聊天</button>
-        <h1>个人中心</h1>
-        <p class="sub">保存昵称与用户名；用户名或密码修改成功后请重新登录。</p>
-        <p class="profile-id-inline mono">ID：{{ userId || '—' }}</p>
+        <button type="button" class="wc-btn wc-btn-ghost back-btn" @click="goChat">{{ $t('profile.backChat') }}</button>
+        <h1>{{ $t('profile.title') }}</h1>
+        <p class="sub">{{ $t('profile.sub') }}</p>
+        <p class="profile-id-inline mono">{{ $t('profile.idLabel') }}{{ userId || '—' }}</p>
       </header>
 
       <p v-if="formError" class="form-error" role="alert">{{ formError }}</p>
@@ -13,11 +13,11 @@
 
       <form class="profile-form" @submit.prevent="handleSubmit">
         <div class="form-group">
-          <label for="pf-nick">昵称</label>
+          <label for="pf-nick">{{ $t('profile.nickname') }}</label>
           <input id="pf-nick" v-model.trim="formNickname" class="wc-input" type="text" autocomplete="nickname" required />
         </div>
         <div class="form-group">
-          <label for="pf-user">用户名</label>
+          <label for="pf-user">{{ $t('profile.username') }}</label>
           <input id="pf-user" v-model.trim="formUsername" class="wc-input" type="text" autocomplete="username" required />
         </div>
 
@@ -28,39 +28,39 @@
             class="wc-btn wc-btn-ghost pwd-toggle-btn"
             @click="showPasswordFields = true"
           >
-            修改密码
+            {{ $t('profile.changePassword') }}
           </button>
           <template v-else>
             <div class="form-group">
-              <label for="pf-new">新密码</label>
+              <label for="pf-new">{{ $t('profile.newPassword') }}</label>
               <input
                 id="pf-new"
                 v-model="newPassword"
                 class="wc-input"
                 type="password"
                 autocomplete="new-password"
-                placeholder="至少 6 位"
+                :placeholder="$t('profile.placeholderNewPwd')"
               />
             </div>
             <div class="form-group">
-              <label for="pf-new2">确认新密码</label>
+              <label for="pf-new2">{{ $t('profile.confirmNewPassword') }}</label>
               <input
                 id="pf-new2"
                 v-model="confirmPassword"
                 class="wc-input"
                 type="password"
                 autocomplete="new-password"
-                placeholder="再次输入新密码"
+                :placeholder="$t('profile.placeholderConfirmPwd')"
               />
             </div>
             <button type="button" class="wc-btn wc-btn-ghost pwd-collapse-btn" @click="cancelPasswordChange">
-              收起
+              {{ $t('profile.collapse') }}
             </button>
           </template>
         </div>
 
         <button type="submit" class="wc-btn wc-btn-primary save-btn" :disabled="saving">
-          {{ saving ? '保存中…' : '保存' }}
+          {{ saving ? $t('profile.saving') : $t('profile.save') }}
         </button>
       </form>
     </div>
@@ -76,10 +76,10 @@ const jsonCreds = {
   headers: { 'Content-Type': 'application/json' },
 }
 
-function apiMessage(res) {
+function apiMessage(vm, res) {
   const d = res && res.data
-  if (!d) return '请求失败'
-  return d.message || d.msg || '请求失败'
+  if (!d) return vm.$t('profile.requestFail')
+  return d.message || d.msg || vm.$t('profile.requestFail')
 }
 
 export default {
@@ -119,16 +119,16 @@ export default {
       this.confirmPassword = ''
     },
     validateClient() {
-      if (!this.formNickname) return '请填写昵称'
-      if (!this.formUsername) return '请填写用户名'
+      if (!this.formNickname) return this.$t('profile.errNickname')
+      if (!this.formUsername) return this.$t('profile.errUsername')
       if (!this.showPasswordFields) return ''
       const np = this.newPassword || ''
       const cp = this.confirmPassword || ''
       const hasAny = np.length > 0 || cp.length > 0
       if (!hasAny) return ''
-      if (!np || !cp) return '请填写新密码与确认新密码'
-      if (np !== cp) return '两次输入的新密码不一致'
-      if (np.length < 6) return '新密码至少 6 位'
+      if (!np || !cp) return this.$t('profile.errPwdBoth')
+      if (np !== cp) return this.$t('profile.errPwdMismatch')
+      if (np.length < 6) return this.$t('profile.errPwdLen')
       return ''
     },
     clearMessages() {
@@ -157,13 +157,13 @@ export default {
         }
         const res = await axios.put('/api/user/profile', body, jsonCreds)
         if (res.data.code !== CODES.SUCCESS) {
-          this.formError = apiMessage(res)
+          this.formError = apiMessage(this, res)
           return
         }
         const needRelogin = !!(res.data.data && res.data.data.needRelogin)
         if (needRelogin) {
           localStorage.clear()
-          alert('用户名或密码已更新，请重新登录')
+          alert(this.$t('profile.reloginAlert'))
           this.$router.replace('/login')
           return
         }
@@ -171,12 +171,12 @@ export default {
         localStorage.setItem('username', this.formUsername)
         this.originalUsername = this.formUsername
         this.cancelPasswordChange()
-        this.formOk = '已保存'
+        this.formOk = this.$t('profile.saved')
         setTimeout(() => {
           this.formOk = ''
         }, 2500)
       } catch (e) {
-        const msg = e.response ? apiMessage(e.response) : '网络异常，请稍后重试'
+        const msg = e.response ? apiMessage(this, e.response) : this.$t('profile.networkErr')
         this.formError = msg
       } finally {
         this.saving = false
